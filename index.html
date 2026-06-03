@@ -147,7 +147,8 @@ body{background:var(--cream);color:var(--green-dark);font-family:DM Sans,sans-se
 .form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:var(--gold)}
 .form-field textarea{resize:vertical;min-height:80px;font-family:DM Sans,sans-serif}
 .ing-row-edit{display:grid;grid-template-columns:1fr 100px 32px;gap:6px;margin-bottom:6px;align-items:center}
-.ing-row-edit input{margin:0}
+.ing-row-edit input{margin:0;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--white);font-family:DM Sans,sans-serif;font-size:14px;padding:7px 10px;outline:none}
+.ing-row-edit input:focus{border-color:var(--gold)}
 .btn-add-ing{background:none;border:1px dashed var(--border2);border-radius:var(--radius);color:var(--white-hint);font-size:13px;padding:6px;cursor:pointer;width:100%;margin-bottom:1rem;transition:border-color .15s,color .15s}
 .btn-add-ing:hover{border-color:var(--gold);color:var(--gold)}
 .btn-remove{background:none;border:none;color:var(--white-hint);cursor:pointer;font-size:18px;line-height:1;padding:4px}
@@ -211,8 +212,8 @@ body{background:var(--cream);color:var(--green-dark);font-family:DM Sans,sans-se
 <div class="edit-bar" id="edit-bar">
   <span style="font-family:Bebas Neue,sans-serif;font-size:15px;color:var(--gold);letter-spacing:.06em">Bewerkmodus</span>
   <button class="edit-btn" onclick="showAddModal()">+ Toevoegen</button>
-  <button class="edit-btn secondary" onclick="showSeasonModal()">Seizoen wisselen</button>
   <button class="edit-btn secondary" onclick="showImportModal()">Document importeren</button>
+  <button class="edit-btn danger" onclick="showSeasonModal()" title="Pas op: archiveert huidige batch">&#9888; Seizoen wisselen</button>
   <span class="sync-indicator" id="sync-status"></span>
 </div>
 
@@ -301,15 +302,39 @@ body{background:var(--cream);color:var(--green-dark);font-family:DM Sans,sans-se
 <div class="modal-overlay" id="season-modal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('season-modal')">&times;</button>
-    <div class="modal-title">Seizoen wisselen</div>
-    <p style="font-size:13px;color:var(--white-muted);margin-bottom:1.25rem;line-height:1.6">
-      Bij een seizoenswisseling worden de huidige batch cocktails gearchiveerd als losse recepten onder het nieuwe seizoen, en wordt "Batch [seizoen]" geleegd voor de nieuwe kaart.
-    </p>
-    <div class="form-field">
-      <label>Naam nieuwe kaart</label>
-      <input type="text" id="f-season" placeholder="bijv. Winter 2026">
+    <div class="modal-title" id="season-modal-title">Seizoen wisselen</div>
+    <div id="season-step-1">
+      <div style="background:rgba(255,80,80,0.1);border:1px solid rgba(255,80,80,0.3);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.25rem">
+        <div style="font-family:Bebas Neue,sans-serif;font-size:16px;color:#f55;letter-spacing:.06em;margin-bottom:.5rem">&#9888; Let op — onomkeerbare actie</div>
+        <div style="font-size:13px;color:var(--white-muted);line-height:1.7">
+          Bij een seizoenswisseling worden <strong>alle huidige batch cocktails gearchiveerd</strong> als losse recepten. De batchlijst wordt daarna leeggemaakt voor de nieuwe kaart.<br><br>
+          Dit kan <strong>niet ongedaan</strong> worden gemaakt.
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Naam nieuwe kaart</label>
+        <input type="text" id="f-season" placeholder="bijv. Winter 2026">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" onclick="closeModal('season-modal')">Annuleren</button>
+        <button class="btn-primary" style="background:#c84020" onclick="seasonStep2()">Doorgaan &rarr;</button>
+      </div>
     </div>
-    <button class="btn-primary" onclick="doSeasonSwitch()">Seizoen wisselen</button>
+    <div id="season-step-2" style="display:none">
+      <div style="background:rgba(255,80,80,0.1);border:1px solid rgba(255,80,80,0.3);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.25rem">
+        <div style="font-size:13px;color:var(--white-muted);line-height:1.7">
+          Typ <strong id="season-confirm-text" style="color:var(--gold)"></strong> om te bevestigen.
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Bevestig door naam over te typen</label>
+        <input type="text" id="f-season-confirm" placeholder="" oninput="checkSeasonConfirm()">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" onclick="seasonBackStep1()">Terug</button>
+        <button class="btn-primary" id="season-confirm-btn" style="background:#c84020;opacity:.4;pointer-events:none" onclick="doSeasonSwitch()">Seizoen wisselen</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -827,6 +852,22 @@ let currentEditType = 'batch';
 let currentEditIdx = -1;
 let parsedImport = [];
 
+function getNextSeason(){
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-11
+  // Zomer = apr-sep (3-8), Winter = okt-mar (9-3)
+  // Next season after current:
+  if(month >= 3 && month <= 8){
+    // Currently zomer -> next is winter same year
+    return {id:'winter'+year, label:'Winter '+year};
+  } else {
+    // Currently winter -> next is zomer next year
+    const nextYear = month >= 9 ? year+1 : year;
+    return {id:'zomer'+nextYear, label:'Zomer '+nextYear};
+  }
+}
+
 const SECTIES = [
   {id:'batch', label:'Batch 2026'},
   {id:'siropen', label:'Siropen & Infusies'},
@@ -834,6 +875,15 @@ const SECTIES = [
   {id:'nul', label:'0.0 Cocktails'},
   {id:'zomer2026', label:'Zomer 2026'},
 ];
+
+function getSectiesWithNext(){
+  const next = getNextSeason();
+  const base = [...SECTIES];
+  // Add next season if not already in liveSections
+  const alreadyExists = liveSections.some(s=>s.id===next.id) || base.some(s=>s.id===next.id);
+  if(!alreadyExists) base.splice(1, 0, {id:next.id, label:next.label + ' (nieuw)'});
+  return base;
+}
 
 function buildSectiePills(containerId, activeId, onSelect){
   const el = document.getElementById(containerId);
@@ -1001,6 +1051,34 @@ async function deleteRecept(){
 }
 
 // ─── SEASON SWITCH ───────────────────────────────────────────────────────────
+function seasonStep2(){
+  const name = document.getElementById('f-season').value.trim();
+  if(!name){ alert('Vul eerst een naam in'); return; }
+  document.getElementById('season-step-1').style.display='none';
+  document.getElementById('season-step-2').style.display='block';
+  document.getElementById('season-confirm-text').textContent = name;
+  document.getElementById('f-season-confirm').placeholder = name;
+  document.getElementById('f-season-confirm').focus();
+}
+
+function seasonBackStep1(){
+  document.getElementById('season-step-1').style.display='block';
+  document.getElementById('season-step-2').style.display='none';
+}
+
+function checkSeasonConfirm(){
+  const name = document.getElementById('f-season').value.trim();
+  const typed = document.getElementById('f-season-confirm').value.trim();
+  const btn = document.getElementById('season-confirm-btn');
+  if(typed === name){
+    btn.style.opacity='1';
+    btn.style.pointerEvents='auto';
+  } else {
+    btn.style.opacity='0.4';
+    btn.style.pointerEvents='none';
+  }
+}
+
 async function doSeasonSwitch(){
   const newSeason = document.getElementById('f-season').value.trim();
   if(!newSeason){ alert('Vul een seizoensnaam in'); return; }
