@@ -401,7 +401,7 @@ const sections = [
       {name:"Daiquiri",ingredients:[{name:"Witte rum",amt:"60 ml"},{name:"Limoensap",amt:"30 ml"},{name:"Suikersiroop",amt:"25 ml"}],note:"Glaswerk: coupe / Nick & Nora (zonder ijs). Shaken. Garnering: gedroogde limoen"},
       {name:"Negroni",ingredients:[{name:"Gin",amt:"30 ml"},{name:"Campari",amt:"30 ml"},{name:"Zoete vermut (Martini rosso)",amt:"30 ml"}],note:"Glaswerk: tumbler met ijs. Stirren. Garnering: sinaasappelschil"},
       {name:"Martini",ingredients:[{name:"Gin of vodka",amt:"60 ml"},{name:"Droge vermut (Martini bianco)",amt:"25 ml"},{name:"Lemon bitters",amt:"2 dashes"}],note:"Glaswerk: martiniglas (zonder ijs). Stirren optioneel shaken. Garnering: citroenschil"},
-      {name:"Dark 'n Stormy",ingredients:[{name:"Limoensap",amt:"25 ml"},{name:"Gingerbeer",amt:"tot 5/6"},{name:"Donkere rum",amt:"50 ml (drijven)"}],note:"Glaswerk: longdrink met ijs. In het glas bouwen. Garnering: limoen en munt"},
+      {name:"Dark n Stormy",ingredients:[{name:"Limoensap",amt:"25 ml"},{name:"Gingerbeer",amt:"tot 5/6"},{name:"Donkere rum",amt:"50 ml (drijven)"}],note:"Glaswerk: longdrink met ijs. In het glas bouwen. Garnering: limoen en munt"},
       {name:"Mojito",ingredients:[{name:"Witte rum",amt:"50 ml"},{name:"Limoen",amt:"3 partjes"},{name:"Munt",amt:"4-5 blaadjes"},{name:"Suikerwater",amt:"10 ml"},{name:"Bruiswater",amt:"aftoppen"}],note:"Glaswerk: Bacardi glas met crushed ijs. Aanstampen. Garnering: munt en limoen"},
       {name:"Cactus",ingredients:[{name:"Tequila",amt:"60 ml"},{name:"Limoen",amt:"30 ml"},{name:"Cactusvijg siroop",amt:"30 ml"},{name:"Agave siroop",amt:"10 ml"},{name:"Saline",amt:"4 druppels"}]},
       {name:"Spicy mango paloma",ingredients:[{name:"Reposado tequila",amt:"50 ml"},{name:"Limoen",amt:"15 ml"},{name:"Spicy mango siroop",amt:"15 ml"},{name:"Smoked saline",amt:"4 druppels"},{name:"Grapefruitsoda",amt:"aftoppen"}],note:"Garnering: grapefruit"},
@@ -410,7 +410,7 @@ const sections = [
     ,
       {name:"Spicy mango daiquiri",ingredients:[{name:"Bacardi Ocho",amt:"50 ml"},{name:"Ancho Reyes",amt:"10 ml"},{name:"Spicy mango siroop",amt:"25 ml"},{name:"Limoen",amt:"30 ml"},{name:"Chili tincture",amt:"5 druppels"},{name:"Saline",amt:"2 druppels"}],note:"Chili suiker rand"},
       {name:"Pandan daiquiri",ingredients:[{name:"Bacardi Carta Blanca",amt:"60 ml"},{name:"Pandan siroop",amt:"30 ml"},{name:"Limoen",amt:"20 ml"},{name:"Saline",amt:"2 druppels"}],note:"Pandan blad op knijpertje"},
-      {name:"Dark 'n Daiquiri",ingredients:[{name:"Bacardi Quattro",amt:"60 ml"},{name:"Limoen",amt:"25 ml"},{name:"Gember siroop",amt:"25 ml"},{name:"Chili tincture",amt:"4 druppels"},{name:"Saline",amt:"2 druppels"},{name:"Foamee",amt:"2 druppels"},{name:"Angostura",amt:"3 dashes"}]}
+      {name:"Dark n Daiquiri",ingredients:[{name:"Bacardi Quattro",amt:"60 ml"},{name:"Limoen",amt:"25 ml"},{name:"Gember siroop",amt:"25 ml"},{name:"Chili tincture",amt:"4 druppels"},{name:"Saline",amt:"2 druppels"},{name:"Foamee",amt:"2 druppels"},{name:"Angostura",amt:"3 dashes"}]}
     ]
   },
   {
@@ -533,26 +533,58 @@ let liveSyropen = [];
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
 async function init(){
-  setSync('Laden...');
+  // Load from localStorage first (instant)
+  const stored = localStorage.getItem('casachow_data');
+  if(stored){
+    try{
+      const d = JSON.parse(stored);
+      liveBatch = d.batch || batchCocktails;
+      liveSections = d.sections || sections;
+      liveSyropen = d.syropen || syropen;
+      setSync('');
+    } catch(e){
+      loadLocalFallback();
+    }
+  } else {
+    // First time - use built-in data and save to localStorage
+    loadLocalFallback();
+    saveLocal();
+  }
+  
+  // Try Supabase in background (optional sync)
   try {
     const rows = await sbGet('recepten');
     if(rows && rows.length > 0){
       dbLoaded = true;
       loadFromDB(rows);
+      saveLocal();
       setSync('');
-    } else {
-      // DB empty - seed with local data
+    } else if(rows !== null){
+      // DB empty, seed it
       await seedDB();
     }
   } catch(e){
-    console.warn('DB not available, using local data', e);
-    liveBatch = batchCocktails;
-    liveSections = sections;
-    liveSyropen = syropen;
-    setSync('Offline');
+    console.warn('Supabase niet beschikbaar, gebruik lokale opslag', e);
   }
+  
   buildSidebar();
   renderBatch();
+}
+
+function loadLocalFallback(){
+  liveBatch = batchCocktails;
+  liveSections = sections;
+  liveSyropen = syropen;
+}
+
+function saveLocal(){
+  try{
+    localStorage.setItem('casachow_data', JSON.stringify({
+      batch: liveBatch,
+      sections: liveSections,
+      syropen: liveSyropen
+    }));
+  } catch(e){ console.warn('localStorage vol', e); }
 }
 
 function loadFromDB(rows){
@@ -606,7 +638,7 @@ function setSync(msg){ document.getElementById('sync-status').textContent = msg;
 function buildSidebar(){
   const sb = document.getElementById('sidebar');
   let h = '';
-  h += "<button class='tab-btn sidebar-section'+(view==='batch'?' active':'')+" + ""' onclick='showBatch(0)'>Batch 2026</button>";
+  h += "<button class='tab-btn sidebar-section"+(view==='batch'?' active':'')+"' onclick='showBatch(0)'>Batch 2026</button>";
   
   const juiceOpen = view==='juice';
   h += `<button class="tab-btn sidebar-section${view==='juice'?' active':''}" onclick="showJuice(0)">Super juice</button>`;
@@ -945,9 +977,13 @@ async function saveRecept(){
     closeModal('add-modal');
     // Reload from DB
     const rows = await sbGet('recepten');
-    if(rows){ loadFromDB(rows); buildSidebar(); rerender(); }
+    if(rows){ loadFromDB(rows); saveLocal(); buildSidebar(); rerender(); }
   } else {
-    setSync('Fout bij opslaan');
+    // Save locally even if DB fails
+    setSync('Lokaal opgeslagen');
+    setTimeout(()=>setSync(''),2000);
+    closeModal('add-modal');
+    rerender();
   }
 }
 
@@ -961,7 +997,7 @@ async function deleteRecept(){
   setTimeout(()=>setSync(''),2000);
   closeModal('add-modal');
   const rows = await sbGet('recepten');
-  if(rows){ loadFromDB(rows); buildSidebar(); rerender(); }
+  if(rows){ loadFromDB(rows); saveLocal(); buildSidebar(); rerender(); }
 }
 
 // ─── SEASON SWITCH ───────────────────────────────────────────────────────────
@@ -1078,7 +1114,7 @@ async function saveImport(){
   setTimeout(()=>setSync(''),2000);
   closeModal('import-modal');
   const rows = await sbGet('recepten');
-  if(rows){ loadFromDB(rows); buildSidebar(); rerender(); }
+  if(rows){ loadFromDB(rows); saveLocal(); buildSidebar(); rerender(); }
 }
 
 function closeModal(id){ document.getElementById(id).classList.remove('visible'); }
