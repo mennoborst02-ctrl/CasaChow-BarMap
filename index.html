@@ -527,6 +527,7 @@ const syropen = [
   {name:"Kaneel siroop",supplies:"3 kaneelstokken, honing siroop, kom, inductieplaat, pan, fine strainer, barspoon, metalen plaat, gasbrander",steps:["Toast 3 kaneelstokken op een metalen plaat met de gasbrander, beide kanten. Verbrand ze niet — stop wanneer ze goed beginnen te ruiken.","Voeg de kaneelstokken in een pan met 250 ml suikersiroop. Verwarm, laat sudderen, niet koken.","Haal van het vuur en voeg kaneel eraan toe. Laat afkoelen.","Vacuumeer inclusief kaneelstokjes in een grote vacuumzak. Laat overnight staan.","Finestrain de volgende dag en vacuumeer per 700 ml. Vergeet niet te stickeren.","Bewaar in de koeling (3-4 weken) of vriezer (oneindig)."]},
   {name:"Chai siroop",supplies:"Kristalsuiker, water, chai poeder, inductieplaat, pan, maatbeker, spatel, finestrainer",steps:["Breng 500 ml water aan de kook.","Voeg 3,5 el chai poeder toe. Laat 5-10 minuten intrekken.","Zeef de chai via een finestrainer.","Voeg 400 g suiker toe en blijf roeren tot volledig opgelost.","Laat afkoelen en vacuumeer per 700 ml. Vergeet niet te stickeren!"]},
   {name:"Citroengrassiroop",supplies:"400 ml water, 500 g suiker, 7 citroengras stengels, kaffir limoenblad, maatbeker, weegschaal",steps:["Kneus en snijd de citroengras in stukjes van 2-3 cm.","Voeg citroengras, suiker, water en een limoenblad samen in een pannetje.","Verhit op laag vuur tot alle suiker is opgelost en de siroop een lichte kleur heeft.","Laat afkoelen en finestrain in een maatbeker.","Vacuumeer per 400 ml. Vergeet niet te stickeren."]},
+  {name:"Groene thee vodka",supplies:"700 ml vodka, 4 schepjes groene thee, weckpot",steps:["Vul een grote weckpot met 700 ml vodka.","Voeg 4 schepjes groene thee toe en laat 24 uur staan.","Strain terug in een vodka fles en plak een labelsticker erop."]},
   {name:"Roze peper gin",supplies:"1 L gin, halve bus roze peperkorrels, weckpot, zeef",steps:["Stop de halve bus roze peperkorrels in een metalen zeef en filter de schilletjes van de korrels met een pollepel.","Voeg de korrels (schillen) toe aan een weckpot met 1 liter gin.","Laat minimaal 24 uur staan, maximaal 48 uur.","Finestrain de schilletjes eruit en voeg het terug aan de fles.","Sticker de fles en zet hem terug op de plank."]},
   {name:"Groene thee vodka",supplies:"700 ml vodka, 4 schepjes groene thee, weckpot",steps:["Vul een grote weckpot met 700 ml vodka.","Voeg 4 schepjes groene thee toe en laat 24 uur staan.","Strain terug in een vodka fles en plak een labelsticker erop."]},
   {name:"Ananas siroop / oleo saccharum",supplies:"Ananas, rietsuiker, kristalsuiker, water, weegschaal, maatbeker, schoenendoos, droogoven",steps:["Snijd de schil van de ananas met een beetje vruchtvlees. Snijd ook de kern eruit.","Voeg schillen en kern toe aan een schoenendoos op een weegschaal.","Lees het gewicht af en vermenigvuldig met 1,25. Zoveel suiker moet er toegevoegd worden (50/50 kristal- en rietsuiker).","Schud voorzichtig zodat de ananas volledig bedekt is met suiker. Dek af.","Sticker de doos met datum, tijd en het gewicht van de suiker. Laat 24 uur staan.","Snijd ondertussen de overige ananas in dunne plakken en droog op 55°C voor 8 uur in de droogoven.","Na 36 uur: haal schillen eruit en weeg de doos. Trek het dooosgewicht (215 g) en de suiker af = gewicht ananasvocht.","Voeg ananasvocht en water (helft van suikergewicht) samen met suikermengsel toe aan een pan op laag vuur. Roer tot opgelost.","Finestrain en vacuumeer per 300 ml. Vergeet niet te stickeren."]},
@@ -986,6 +987,78 @@ function addStepRow(val=''){
   document.getElementById('steps-list').appendChild(div);
 }
 
+// Ingredients to exclude from batch (fresh/carbonated)
+const FRESH_KEYWORDS = [
+  'limoen','citroen','sinaasappel','grapefruit','sap','juice',
+  'bruiswater','soda','gingerbeer','tonic','spuitwater','foamee',
+  'garnering','schijfje','partjes','blaadjes','takje','stengel'
+];
+
+function isFresh(name){
+  const lower = name.toLowerCase();
+  return FRESH_KEYWORDS.some(k => lower.includes(k));
+}
+
+function isNewestSeason(sectionId){
+  // The newest season is the most recently added non-permanent section
+  // We consider it newest if it's not one of the fixed permanent sections
+  const fixedSections = ['extra','nul','slush'];
+  if(fixedSections.includes(sectionId)) return false;
+  // Find sections that look like season labels (zomer/winter + year)
+  const seasonSections = liveSections.filter(s => 
+    !fixedSections.includes(s.id) && 
+    (s.id.startsWith('zomer') || s.id.startsWith('winter'))
+  );
+  if(seasonSections.length === 0) return false;
+  // Sort by year/season to find newest
+  const sorted = seasonSections.sort((a,b) => {
+    const yearA = parseInt(a.id.replace(/[^0-9]/g,'')) || 0;
+    const yearB = parseInt(b.id.replace(/[^0-9]/g,'')) || 0;
+    if(yearA !== yearB) return yearB - yearA;
+    // Same year: winter > zomer
+    const isWinterA = a.id.startsWith('winter') ? 1 : 0;
+    const isWinterB = b.id.startsWith('winter') ? 1 : 0;
+    return isWinterB - isWinterA;
+  });
+  return sectionId === sorted[0].id;
+}
+
+function generateBatchFromCocktail(cocktailData){
+  const base = 10;
+  const batchIngredients = (cocktailData.ingredients || [])
+    .filter(i => i.name && i.amt && !isFresh(i.name) && i.amt !== '')
+    .map(i => {
+      // Parse amount: "50 ml" -> 50, then multiply by base
+      const match = i.amt.toString().match(/([\d,.]+)/);
+      if(!match) return null;
+      const ml = parseFloat(match[1].replace(',','.'));
+      if(isNaN(ml) || ml <= 0) return null;
+      return { name: i.name, ml: Math.round(ml * base) };
+    })
+    .filter(Boolean);
+  
+  if(batchIngredients.length === 0) return null;
+  
+  return {
+    id: 'batch_' + Date.now(),
+    name: cocktailData.name,
+    base: base,
+    ingredients: batchIngredients,
+    specials: ['Snuf zout'],
+    note: '',
+    tags: [],
+    _autogenerated: true
+  };
+}
+
+function showBatchGeneratedNotice(name){
+  const notice = document.createElement('div');
+  notice.style.cssText = 'position:fixed;bottom:90px;right:24px;background:var(--green-dark);border:1px solid var(--gold);border-radius:var(--radius);padding:.75rem 1.25rem;font-size:13px;color:var(--white);z-index:500;max-width:280px;line-height:1.5';
+  notice.innerHTML = `<strong style="color:var(--gold)">Batch aangemaakt</strong><br>Batch recept voor <em>${name}</em> is automatisch toegevoegd aan Batch 2026. Controleer en pas aan indien nodig.`;
+  document.body.appendChild(notice);
+  setTimeout(()=>notice.remove(), 5000);
+}
+
 async function saveRecept(){
   const naam = document.getElementById('f-naam').value.trim();
   if(!naam){ alert('Vul een naam in'); return; }
@@ -1025,15 +1098,27 @@ async function saveRecept(){
     setSync('Opgeslagen ✓');
     setTimeout(()=>setSync(''),2000);
     closeModal('add-modal');
-    // Reload from DB
     const rows = await sbGet('recepten');
     if(rows){ loadFromDB(rows); saveLocal(); buildSidebar(); rerender(); }
   } else {
-    // Save locally even if DB fails
     setSync('Lokaal opgeslagen');
     setTimeout(()=>setSync(''),2000);
     closeModal('add-modal');
     rerender();
+  }
+  
+  // Auto-generate batch if saving to newest season card
+  if(currentEditType === 'section' && isNewestSeason(view) && currentEditIdx === -1){
+    const batchData = generateBatchFromCocktail(data);
+    if(batchData){
+      const batchResult = await sbInsert('recepten', {sectie:'batch', naam:batchData.name, data:batchData, volgorde:Date.now()});
+      if(!batchResult){
+        // Save locally
+        liveBatch.push(batchData);
+        saveLocal();
+      }
+      showBatchGeneratedNotice(batchData.name);
+    }
   }
 }
 
