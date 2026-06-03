@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1780495873171782187 -->
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
@@ -51,6 +52,7 @@ body{background:var(--cream);color:var(--green-dark);font-family:DM Sans,sans-se
 .tab-btn.sidebar-section:hover{color:var(--green-dark);background:rgba(58,107,71,0.08)}
 .tab-btn.sidebar-section.active{color:var(--green-dark);border-left-color:var(--green);background:rgba(58,107,71,0.1)}
 .main{background:var(--green);padding:2rem;color:var(--white);min-height:calc(100vh - 74px)}
+.main.edit-active{padding-bottom:80px}
 .main-inner{max-width:660px}
 .page-title{font-family:Bebas Neue,sans-serif;font-size:32px;letter-spacing:.06em;color:var(--gold);margin-bottom:3px;text-transform:uppercase}
 .page-sub{font-family:DM Mono,monospace;font-size:11px;color:var(--white-hint);text-transform:uppercase;letter-spacing:.08em;margin-bottom:1.75rem}
@@ -74,6 +76,9 @@ body{background:var(--cream);color:var(--green-dark);font-family:DM Sans,sans-se
 .ing-input:hover{border-color:var(--border2)}
 .ing-input:focus{border-color:var(--gold);background:rgba(200,160,32,0.08)}
 .ing-unit{font-size:12px;color:var(--white-hint);font-family:DM Mono,monospace}
+.ing-unit-select{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--white);font-size:13px;padding:7px 6px;outline:none;cursor:pointer}
+.ing-unit-select:focus{border-color:var(--gold)}
+.ing-row-edit{display:grid;grid-template-columns:1fr 80px 90px 32px;gap:6px;margin-bottom:6px;align-items:center}
 .ing-special{color:var(--white-hint);font-style:italic;font-size:13px}
 .note-box{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:var(--radius);padding:1rem 1.25rem;font-size:13px;color:var(--white-muted);line-height:1.7}
 .juice-section-title{font-family:Bebas Neue,sans-serif;font-size:15px;color:var(--gold);letter-spacing:.1em;margin:1.5rem 0 .75rem;text-transform:uppercase}
@@ -146,7 +151,7 @@ body{background:var(--cream);color:var(--green-dark);font-family:DM Sans,sans-se
 .form-field input,.form-field select,.form-field textarea{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--white);font-family:DM Sans,sans-serif;font-size:14px;padding:8px 10px;outline:none;transition:border-color .15s;width:100%}
 .form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:var(--gold)}
 .form-field textarea{resize:vertical;min-height:80px;font-family:DM Sans,sans-serif}
-.ing-row-edit{display:grid;grid-template-columns:1fr 100px 32px;gap:6px;margin-bottom:6px;align-items:center}
+.ing-row-edit{display:grid;grid-template-columns:1fr 80px 90px 32px;gap:6px;margin-bottom:6px;align-items:center}
 .ing-row-edit input{margin:0;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--white);font-family:DM Sans,sans-serif;font-size:14px;padding:7px 10px;outline:none}
 .ing-row-edit input:focus{border-color:var(--gold)}
 .btn-add-ing{background:none;border:1px dashed var(--border2);border-radius:var(--radius);color:var(--white-hint);font-size:13px;padding:6px;cursor:pointer;width:100%;margin-bottom:1rem;transition:border-color .15s,color .15s}
@@ -159,6 +164,7 @@ body{background:var(--cream);color:var(--green-dark);font-family:DM Sans,sans-se
 .btn-secondary:hover{border-color:var(--gold);color:var(--gold)}
 .edit-bar{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--green-dark);border-top:2px solid var(--gold);padding:.75rem 1.5rem;z-index:150;gap:10px;flex-wrap:wrap;align-items:center}
 .edit-bar.visible{display:flex}
+body.edit-active .main{padding-bottom:80px}
 .edit-btn{background:var(--gold);color:var(--green-dark);border:none;border-radius:var(--radius);font-family:Bebas Neue,sans-serif;font-size:15px;letter-spacing:.06em;padding:8px 18px;cursor:pointer;transition:opacity .15s}
 .edit-btn:hover{opacity:.85}
 .edit-btn.danger{background:none;border:1px solid #f55;color:#f55}
@@ -403,7 +409,7 @@ const batchCocktails=[
   {id:"sultans",name:"Sultans of swing",tags:["vriezer"],base:10,note:"Per glas: 90 ml batch + Maraschino kers.",ingredients:[{name:"Reposado tequila",ml:400},{name:"PX Sherry",ml:350},{name:"Water",ml:75},{name:"Suiker siroop",ml:50}],specials:["5 dashes Angostura bitters (per 10 glazen)","Snuf zout","Maraschino kers per glas"]},
   {id:"coco",name:"Coco jambo",tags:[],base:10,note:"Per glas: 80 ml batch + 30 ml limoen.",ingredients:[{name:"Malibu",ml:500},{name:"Perziklikeur",ml:200},{name:"Suikersiroop",ml:100}],specials:["Snuf zout","30 ml limoen per glas"]},
   
-  {id:"pornstar",name:"Pornstar martini",tags:[],base:10,note:"Per glas: foamee toevoegen.",ingredients:[{name:"Passievruchtpuree",ml:600},{name:"Vodka",ml:500},{name:"Licor 43",ml:200},{name:"Suikersiroop",ml:100},{name:"Vanillesiroop",ml:200}],specials:["Foamee"]}
+  {id:"pornstar",name:"Pornstar martini",tags:[],permanent:true,base:10,note:"Per glas: foamee toevoegen.",ingredients:[{name:"Passievruchtpuree",ml:600},{name:"Vodka",ml:500},{name:"Licor 43",ml:200},{name:"Suikersiroop",ml:100},{name:"Vanillesiroop",ml:200}],specials:["Foamee"]}
 ];
 
 const juices=[
@@ -564,9 +570,12 @@ async function init(){
   if(stored){
     try{
       const d = JSON.parse(stored);
-      liveBatch = d.batch || batchCocktails;
+      // If stored batch is empty but we have hardcoded data, prefer hardcoded
+      liveBatch = (d.batch && d.batch.length > 0) ? d.batch : batchCocktails;
       liveSections = d.sections || sections;
       liveSyropen = d.syropen || syropen;
+      // Restore batch label
+      if(d.batchLabel) window._currentBatchLabel = d.batchLabel;
       setSync('');
     } catch(e){
       loadLocalFallback();
@@ -608,7 +617,8 @@ function saveLocal(){
     localStorage.setItem('casachow_data', JSON.stringify({
       batch: liveBatch,
       sections: liveSections,
-      syropen: liveSyropen
+      syropen: liveSyropen,
+      batchLabel: window._currentBatchLabel || 'Batch 2026'
     }));
   } catch(e){ console.warn('localStorage vol', e); }
 }
@@ -664,7 +674,8 @@ function setSync(msg){ document.getElementById('sync-status').textContent = msg;
 function buildSidebar(){
   const sb = document.getElementById('sidebar');
   let h = '';
-  h += "<button class='tab-btn sidebar-section"+(view==='batch'?' active':'')+"' onclick='showBatch(0)'>Batch 2026</button>";
+  const batchLabel = window._currentBatchLabel || 'Batch 2026';
+  h += `<button class='tab-btn sidebar-section${view==='batch'?' active':''}' onclick='showBatch(0)'>${batchLabel}</button>`;
   
   const juiceOpen = view==='juice';
   h += `<button class="tab-btn sidebar-section${view==='juice'?' active':''}" onclick="showJuice(0)">Super juice</button>`;
@@ -713,9 +724,16 @@ function renderBatch(){
   const glasses=r(c.base*batchScale,1);
   const baseTotalMl=c.ingredients.reduce((s,i)=>s+i.ml,0);
   const scaledTotal=r(baseTotalMl*batchScale);
-  const ingRows=c.ingredients.map((ing,idx)=>`<tr><td>${ing.name}</td><td><div class="ing-input-wrap"><input class="ing-input" type="number" min="0" step="any" value="${r(ing.ml*batchScale)}" data-idx="${idx}" data-base="${ing.ml}" oninput="lockToIng(this)"><span class="ing-unit">ml</span></div></td></tr>`).join('');
+  const ingRows=c.ingredients.map((ing,idx)=>{
+    if(ing.unit && ing.unit !== 'ml'){
+      // Non-ml ingredient: show as fixed (dashes/stuks/g don't scale the same way)
+      const scaled = ing.unit === 'g' ? r((ing.amt||ing.ml)*batchScale) : (ing.amt||0);
+      return `<tr><td>${ing.name}</td><td><div class="ing-input-wrap"><input class="ing-input" type="number" min="0" step="any" value="${scaled}" data-idx="${idx}" data-base="${ing.amt||0}" data-unit="${ing.unit}" oninput="lockToIng(this)"><span class="ing-unit">${ing.unit}</span></div></td></tr>`;
+    }
+    return `<tr><td>${ing.name}</td><td><div class="ing-input-wrap"><input class="ing-input" type="number" min="0" step="any" value="${r(ing.ml*batchScale)}" data-idx="${idx}" data-base="${ing.ml}" data-unit="ml" oninput="lockToIng(this)"><span class="ing-unit">ml</span></div></td></tr>`;
+  }).join('');
   const specialRows=(c.specials||[]).map(s=>`<tr><td class="ing-special">${s}</td><td></td></tr>`).join('');
-  const cards=liveBatch.map((bc,i)=>`<div class="recipe-card recipe-card-edit${i===batchIdx?' active':''}" onclick="selectBatch(${i})">${editCardBtn('batch',i)}<div class="recipe-card-name">${bc.name}</div><div class="recipe-card-meta">${bc.ingredients.length} ingrediënten${(bc.tags||[]).includes('vriezer')?' &mdash; vriezer':''}</div></div>`).join('');
+  const cards=liveBatch.map((bc,i)=>`<div class="recipe-card recipe-card-edit${i===batchIdx?' active':''}" onclick="selectBatch(${i})">${editCardBtn('batch',i)}<div class="recipe-card-name">${bc.name}</div><div class="recipe-card-meta">${bc.ingredients.length} ingrediënten${(bc.tags||[]).includes('vriezer')?' &mdash; vriezer':''}${bc.permanent?' &mdash; altijd':''}  </div></div>`).join('');
   document.getElementById('main').innerHTML=
     `<div class="page-title">Batch 2026</div><div class="page-sub">Batch calculator &mdash; basisrecept &times; ${c.base} glazen</div>`+
     `<div class="recipe-grid">${cards}</div>`+
@@ -732,7 +750,12 @@ function selectBatch(i){ batchIdx=i; batchScale=1.0; renderBatch(); scrollToDeta
 function scaleByGlasses(val){const v=parseFloat(val);if(!isNaN(v)&&v>0){batchScale=v/liveBatch[batchIdx].base;syncBatch()}}
 function scaleByFactor(val){const v=parseFloat(val);if(!isNaN(v)&&v>0){batchScale=v;syncBatch()}}
 function scaleByTotal(val,base){const v=parseFloat(val);if(!isNaN(v)&&v>0&&base>0){batchScale=v/base;syncBatch(true)}}
-function lockToIng(input){const v=parseFloat(input.value);const b=parseFloat(input.dataset.base);if(!isNaN(v)&&v>0&&b>0){batchScale=v/b;syncBatch(false,parseInt(input.dataset.idx))}}
+function lockToIng(input){
+  const unit = input.dataset.unit || 'ml';
+  if(unit !== 'ml') return; // Only ml ingredients drive scale
+  const v=parseFloat(input.value);const b=parseFloat(input.dataset.base);
+  if(!isNaN(v)&&v>0&&b>0){batchScale=v/b;syncBatch(false,parseInt(input.dataset.idx))}
+}
 function syncBatch(skipTotal=false,skipIdx=-1){
   const c=liveBatch[batchIdx];
   const glasses=r(c.base*batchScale,1);
@@ -740,7 +763,14 @@ function syncBatch(skipTotal=false,skipIdx=-1){
   const total=r(base*batchScale);
   const gEl=document.getElementById('inp-glasses');const fEl=document.getElementById('inp-factor');const tEl=document.getElementById('inp-total');
   if(gEl)gEl.value=glasses;if(fEl)fEl.value=r(batchScale);if(!skipTotal&&tEl)tEl.value=total;
-  document.querySelectorAll('.ing-input').forEach(inp=>{const idx=parseInt(inp.dataset.idx);if(idx===skipIdx)return;inp.value=r(c.ingredients[idx].ml*batchScale);});
+  document.querySelectorAll('.ing-input').forEach(inp=>{
+    const idx=parseInt(inp.dataset.idx);if(idx===skipIdx)return;
+    const ing=c.ingredients[idx];
+    const unit=inp.dataset.unit||'ml';
+    if(unit==='ml') inp.value=r(ing.ml*batchScale);
+    else if(unit==='g') inp.value=r((ing.amt||0)*batchScale);
+    // dashes/stuks don't scale
+  });
 }
 
 // ─── JUICE ───────────────────────────────────────────────────────────────────
@@ -832,13 +862,14 @@ function enterEditMode(){
   editMode=true;
   document.getElementById('edit-fab').classList.add('active');
   document.getElementById('edit-bar').classList.add('visible');
-  // Re-render current view to show edit buttons
+  document.body.classList.add('edit-active');
   rerender();
 }
 function exitEditMode(){
   editMode=false;
   document.getElementById('edit-fab').classList.remove('active');
   document.getElementById('edit-bar').classList.remove('visible');
+  document.body.classList.remove('edit-active');
   rerender();
 }
 function rerender(){
@@ -870,7 +901,7 @@ function getNextSeason(){
 }
 
 const SECTIES = [
-  {id:'batch', label:'Batch 2026'},
+  {id:'batch', label: window._currentBatchLabel||'Batch 2026'},
   {id:'siropen', label:'Siropen & Infusies'},
   {id:'extra', label:'Classics & Losse cocktails'},
   {id:'nul', label:'0.0 Cocktails'},
@@ -878,11 +909,31 @@ const SECTIES = [
 ];
 
 function getSectiesWithNext(){
-  const next = getNextSeason();
-  const base = [...SECTIES];
-  // Add next season if not already in liveSections
-  const alreadyExists = liveSections.some(s=>s.id===next.id) || base.some(s=>s.id===next.id);
-  if(!alreadyExists) base.splice(1, 0, {id:next.id, label:next.label + ' (nieuw)'});
+  const base = [
+    {id:'batch', label: window._currentBatchLabel||'Batch 2026'},
+    {id:'siropen', label:'Siropen & Infusies'},
+    {id:'extra', label:'Classics & Losse cocktails'},
+    {id:'nul', label:'0.0 Cocktails'},
+  ];
+  
+  // Add all season sections from liveSections (newest first)
+  const seasonSections = liveSections
+    .filter(s=>s.id.startsWith('zomer')||s.id.startsWith('winter'))
+    .sort((a,b)=>{
+      const yA=parseInt(a.id.replace(/[^0-9]/g,''))||0;
+      const yB=parseInt(b.id.replace(/[^0-9]/g,''))||0;
+      if(yA!==yB) return yB-yA;
+      return (b.id.startsWith('winter')?1:0)-(a.id.startsWith('winter')?1:0);
+    });
+  seasonSections.forEach(s=>base.push({id:s.id,label:s.label}));
+  
+  // Also add slush and other non-season sections
+  liveSections
+    .filter(s=>!s.id.startsWith('zomer')&&!s.id.startsWith('winter'))
+    .forEach(s=>{
+      if(!base.find(b=>b.id===s.id)) base.push({id:s.id,label:s.label});
+    });
+  
   return base;
 }
 
@@ -938,7 +989,7 @@ function openEdit(type, idx){
   // Fill ingredients
   document.getElementById('ing-list').innerHTML='';
   if(currentEditType==='batch'){
-    (data.ingredients||[]).forEach(i=>addIngRow(i.name, i.ml+''));
+    (data.ingredients||[]).forEach(i=>addIngRow(i.name, i.ml+'', i.unit||'ml'));
     document.getElementById('specials-list').innerHTML='';
     (data.specials||[]).forEach(s=>addSpecialRow(s));
   } else if(currentEditType==='siropen'){
@@ -965,11 +1016,34 @@ function updateModalFields(){
   document.querySelector('.btn-add-ing').style.display = isSiroop?'none':'block';
 }
 
-function addIngRow(name='', amt=''){
+function addIngRow(name='', amt='', unit='ml'){
   const div = document.createElement('div');
   div.className = 'ing-row-edit';
-  const isAmt = currentEditType!=='batch';
-  div.innerHTML = `<input type="text" placeholder="Naam" value="${name}"><input type="text" placeholder="${isAmt?'Hoeveelheid':'ml'}" value="${amt}"><button class="btn-remove" onclick="this.parentElement.remove()">&times;</button>`;
+  if(currentEditType==='batch'){
+    // Batch: separate number + unit selector
+    const numVal = amt ? amt.toString().replace(/[^0-9.,]/g,'') : '';
+    // detect unit from amt string
+    let detectedUnit = 'ml';
+    if(typeof amt === 'string'){
+      if(amt.includes('dash')) detectedUnit='dashes';
+      else if(amt.includes('stuk') || amt.includes('stuks')) detectedUnit='stuks';
+      else if(amt.includes(' g') || amt.endsWith('g')) detectedUnit='g';
+    }
+    if(unit && unit!=='ml') detectedUnit=unit;
+    div.style.gridTemplateColumns='1fr 70px 90px 32px';
+    div.innerHTML = `<input type="text" placeholder="Naam" value="${name}">` +
+      `<input type="number" placeholder="0" value="${numVal}" min="0" step="any" class="ing-amount-input">` +
+      `<select class="ing-unit-select" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--white);font-size:13px;padding:7px 6px;outline:none">` +
+      `<option value="ml" ${detectedUnit==='ml'?'selected':''}>ml</option>` +
+      `<option value="dashes" ${detectedUnit==='dashes'?'selected':''}>dashes</option>` +
+      `<option value="stuks" ${detectedUnit==='stuks'?'selected':''}>stuks</option>` +
+      `<option value="g" ${detectedUnit==='g'?'selected':''}>g</option>` +
+      `</select>` +
+      `<button class="btn-remove" onclick="this.parentElement.remove()">&times;</button>`;
+  } else {
+    // Section/losse cocktail: free text amount
+    div.innerHTML = `<input type="text" placeholder="Naam" value="${name}"><input type="text" placeholder="Hoeveelheid" value="${amt}"><button class="btn-remove" onclick="this.parentElement.remove()">&times;</button>`;
+  }
   document.getElementById('ing-list').appendChild(div);
 }
 function addSpecialRow(val=''){
@@ -1000,27 +1074,11 @@ function isFresh(name){
 }
 
 function isNewestSeason(sectionId){
-  // The newest season is the most recently added non-permanent section
-  // We consider it newest if it's not one of the fixed permanent sections
-  const fixedSections = ['extra','nul','slush'];
-  if(fixedSections.includes(sectionId)) return false;
-  // Find sections that look like season labels (zomer/winter + year)
-  const seasonSections = liveSections.filter(s => 
-    !fixedSections.includes(s.id) && 
-    (s.id.startsWith('zomer') || s.id.startsWith('winter'))
-  );
-  if(seasonSections.length === 0) return false;
-  // Sort by year/season to find newest
-  const sorted = seasonSections.sort((a,b) => {
-    const yearA = parseInt(a.id.replace(/[^0-9]/g,'')) || 0;
-    const yearB = parseInt(b.id.replace(/[^0-9]/g,'')) || 0;
-    if(yearA !== yearB) return yearB - yearA;
-    // Same year: winter > zomer
-    const isWinterA = a.id.startsWith('winter') ? 1 : 0;
-    const isWinterB = b.id.startsWith('winter') ? 1 : 0;
-    return isWinterB - isWinterA;
-  });
-  return sectionId === sorted[0].id;
+  // The newest season matches the current batch label
+  const currentBatchLabel = window._currentBatchLabel || 'Batch 2026';
+  const currentSeasonLabel = currentBatchLabel.replace('Batch ','').trim();
+  const currentSeasonId = currentSeasonLabel.toLowerCase().replace(/[^a-z0-9]/g,'');
+  return sectionId === currentSeasonId;
 }
 
 function generateBatchFromCocktail(cocktailData){
@@ -1067,9 +1125,17 @@ async function saveRecept(){
   let data, sectie;
   if(currentEditType==='batch'){
     const ings = [...document.getElementById('ing-list').querySelectorAll('.ing-row-edit')].map(row=>{
-      const inputs=row.querySelectorAll('input');
-      return {name:inputs[0].value.trim(), ml:parseFloat(inputs[1].value)||0};
-    }).filter(i=>i.name);
+      const nameInput = row.querySelector('input[placeholder="Naam"]');
+      const amtInput = row.querySelector('.ing-amount-input') || row.querySelectorAll('input')[1];
+      const unitSelect = row.querySelector('.ing-unit-select');
+      const name = nameInput ? nameInput.value.trim() : '';
+      const amt = parseFloat(amtInput ? amtInput.value : 0) || 0;
+      const unit = unitSelect ? unitSelect.value : 'ml';
+      if(!name) return null;
+      // Store as ml for ml, otherwise store amt + unit separately
+      if(unit === 'ml') return {name, ml: amt};
+      return {name, ml: 0, amt: amt, unit: unit};
+    }).filter(Boolean);
     const specials = [...document.getElementById('specials-list').querySelectorAll('.ing-row-edit')].map(row=>row.querySelector('input').value.trim()).filter(Boolean);
     data = {name:naam, ingredients:ings, specials, base:parseInt(document.getElementById('f-base').value)||10, tags:document.getElementById('f-vriezer').value==='ja'?['vriezer']:[], note:document.getElementById('f-note-batch').value.trim()};
     sectie = 'batch';
@@ -1136,6 +1202,20 @@ async function deleteRecept(){
 }
 
 // ─── SEASON SWITCH ───────────────────────────────────────────────────────────
+function showSeasonModal(){
+  document.getElementById('season-step-1').style.display='block';
+  document.getElementById('season-step-2').style.display='none';
+  document.getElementById('f-season-confirm').value='';
+  document.getElementById('season-confirm-btn').style.opacity='0.4';
+  document.getElementById('season-confirm-btn').style.pointerEvents='none';
+  const next = getNextSeason();
+  setTimeout(()=>{
+    const el = document.getElementById('f-season');
+    if(el && !el.value) el.value = next.label;
+  }, 50);
+  document.getElementById('season-modal').classList.add('visible');
+}
+
 function seasonStep2(){
   const name = document.getElementById('f-season').value.trim();
   if(!name){ alert('Vul eerst een naam in'); return; }
@@ -1167,41 +1247,76 @@ function checkSeasonConfirm(){
 async function doSeasonSwitch(){
   const newSeason = document.getElementById('f-season').value.trim();
   if(!newSeason){ alert('Vul een seizoensnaam in'); return; }
-  
-  const newId = newSeason.toLowerCase().replace(/\s+/g,'');
-  
-  if(!confirm(`Seizoen wisselen naar "${newSeason}"? De huidige batch cocktails worden gearchiveerd als losse recepten.`)) return;
+  const newId = newSeason.toLowerCase().replace(/[^a-z0-9]/g,'');
   
   setSync('Seizoen wisselen...');
   
-  // Archive current batch as individual recipes in new season section
-  const archiveInserts = liveBatch.map((c,i)=>{
-    const archiveData = {
-      name: c.name,
-      ingredients: c.ingredients.map(ing=>{return {name:ing.name, amt:ing.ml+'ml'}}).concat((c.specials||[]).map(s=>{return {name:s, amt:''}})),
-      note: c.note||''
-    };
-    return sbInsert('recepten', {sectie:newId, naam:c.name, data:archiveData, volgorde:i});
-  });
-  await Promise.all(archiveInserts);
+  // 1. Figure out current season label from batch label
+  const currentBatchLabel = window._currentBatchLabel || 'Batch 2026';
+  const currentSeasonLabel = currentBatchLabel.replace('Batch ','').trim(); // e.g. "Zomer 2026"
+  const currentSeasonId = currentSeasonLabel.toLowerCase().replace(/[^a-z0-9]/g,''); // e.g. "zomer2026"
   
-  // Update label for new section in sections array (add to liveSections)
-  liveSections.unshift({id:newId, label:newSeason, cocktails:[]});
+  // Separate permanent cocktails (stay in batch forever) from seasonal ones
+  const permanentCocktails = liveBatch.filter(c=>c.permanent);
+  const seasonalCocktails = liveBatch.filter(c=>!c.permanent);
   
-  // Clear batch cocktails from DB
-  const batchRows = await sbGet('recepten', 'sectie=eq.batch');
-  if(batchRows){
-    await Promise.all(batchRows.map(r=>sbDelete('recepten', r.id)));
+  // 2. Archive seasonal batch cocktails under CURRENT season (not new one)
+  const archivedCocktails = seasonalCocktails.map(c=>({
+    name: c.name,
+    ingredients: (c.ingredients||[]).map(ing=>({
+      name: ing.name,
+      amt: ing.ml + ' ' + (ing.unit||'ml')
+    })),
+    note: c.note||''
+  }));
+  
+  // Add archived cocktails to existing current season section, or create it
+  const existingCurrentSeason = liveSections.find(s=>s.id===currentSeasonId);
+  if(existingCurrentSeason){
+    existingCurrentSeason.cocktails = [...(existingCurrentSeason.cocktails||[]), ...archivedCocktails];
+  } else {
+    // Create current season section with archived cocktails
+    const currentSection = {id:currentSeasonId, label:currentSeasonLabel, cocktails:archivedCocktails};
+    const firstSeasonIdx = liveSections.findIndex(s=>s.id.startsWith('zomer')||s.id.startsWith('winter'));
+    if(firstSeasonIdx>=0) liveSections.splice(firstSeasonIdx,0,currentSection);
+    else liveSections.unshift(currentSection);
   }
-  liveBatch = [];
   
+  // 3. Create NEW season section (empty - for new cocktails)
+  const newSection = {id:newId, label:newSeason, cocktails:[]};
+  // Insert as first season section (newest)
+  const firstSeasonIdx = liveSections.findIndex(s=>s.id.startsWith('zomer')||s.id.startsWith('winter'));
+  if(firstSeasonIdx>=0) liveSections.splice(firstSeasonIdx,0,newSection);
+  else liveSections.unshift(newSection);
+  
+  // 4. Update batch label to new season, keep permanent cocktails in batch
+  window._currentBatchLabel = 'Batch ' + newSeason;
+  liveBatch = permanentCocktails; // Pornstar martini and any other permanents stay
+  
+  // 5. Try DB
+  try {
+    // Archive seasonal cocktails to current season in DB
+    if(archivedCocktails.length>0){
+      const archiveInserts = archivedCocktails.map((c,i)=>
+        sbInsert('recepten',{sectie:currentSeasonId,naam:c.name,data:c,volgorde:Date.now()+i})
+      );
+      await Promise.all(archiveInserts);
+    }
+    // Clear only non-permanent batch cocktails from DB
+    const batchRows = await sbGet('recepten','sectie=eq.batch');
+    if(batchRows){
+      const nonPermRows = batchRows.filter(r=>!r.data?.permanent);
+      await Promise.all(nonPermRows.map(r=>sbDelete('recepten',r.id)));
+    }
+  } catch(e){ console.warn('DB not available for season switch'); }
+  
+  saveLocal();
   setSync('Seizoen gewisseld ✓');
   setTimeout(()=>setSync(''),2000);
   closeModal('season-modal');
-  
-  // Reload
-  const rows = await sbGet('recepten');
-  if(rows){ loadFromDB(rows); buildSidebar(); renderBatch(); }
+  buildSidebar();
+  // Go to new empty season so user can start adding cocktails
+  showSection(newId);
 }
 
 // ─── IMPORT ──────────────────────────────────────────────────────────────────
@@ -1283,6 +1398,13 @@ async function saveImport(){
 function closeModal(id){ document.getElementById(id).classList.remove('visible'); }
 
 // ─── START ───────────────────────────────────────────────────────────────────
+// Reset local storage if ?reset=1 in URL (emergency reset)
+if(window.location.search.includes('reset=1')){
+  localStorage.removeItem('casachow_data');
+  window._currentBatchLabel = 'Batch 2026';
+  alert('Lokale opslag gereset. Pagina wordt herladen.');
+  window.location.href = window.location.pathname;
+}
 init();
 </script>
 </body>
