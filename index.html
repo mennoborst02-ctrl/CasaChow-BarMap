@@ -689,13 +689,7 @@ function buildSidebar(){
   const batchLabel = 'Batch calculator';
   h += `<button class='tab-btn sidebar-section${view==='batch'?' active':''}' onclick='showBatch(0)'>${batchLabel}</button>`;
   
-  const juiceOpen = view==='juice';
-  h += `<button class="tab-btn sidebar-section${view==='juice'?' active':''}" onclick="showJuice(0)">Super juice</button>`;
-  if(juiceOpen){
-    juices.forEach((j,i)=>{
-      h += `<button class="tab-btn sub-tab${view==='juice'&&juiceIdx===i?' active':''}" onclick="showJuice(${i})">${j.name}</button>`;
-    });
-  }
+  h += `<button class="tab-btn sidebar-section${view==='juice'?' active':''}" onclick="showJuice(0)">Citroen/Limoen Acids</button>`;
   
   h += `<button class="tab-btn sidebar-section${view==='syrups'?' active':''}" onclick="showSyrups()">Siropen & Infusies</button>`;
   
@@ -790,17 +784,26 @@ function renderJuice(){
   const j=juices[juiceIdx];const w=juiceShellWeight;
   const citric=r(w*j.citricFactor,1);const malic=j.malicFactor>0?r(w*j.malicFactor,1):0;
   const waterTotal=Math.round(w*j.waterFactor);const water500=Math.min(500,waterTotal);const waterRest=Math.max(0,waterTotal-500);
+  
+  const cards=juices.map((jj,i)=>`<div class="recipe-card${i===juiceIdx?' active':''}" onclick="selectJuice(${i})"><div class="recipe-card-name">${jj.name}</div><div class="recipe-card-meta">Acid calculator</div></div>`).join('');
+  
   document.getElementById('main').innerHTML=
-    `<div class="page-title">${j.name}</div><div class="page-sub">Super juice &mdash; vul schilgewicht in</div>`+
+    `<div class="page-title">Citroen/Limoen acids</div><div class="page-sub">Citroen/Limoen Acids &mdash; vul schilgewicht in</div>`+
+    `<div class="recipe-grid">${cards}</div>`+
+    `<div class="recipe-detail"><div class="recipe-detail-title">${j.name}</div>`+
     `<div class="scale-row" style="grid-template-columns:1fr"><div class="scale-field"><label>Gewicht schillen (g)</label><input type="number" min="1" step="1" id="inp-shell" value="${w}" oninput="updateJuice(this.value)"></div></div>`+
-    `<div class="juice-section-title">Zuren</div><div class="juice-output-row"><div class="juice-output"><label>Citroenzuur</label><div class="val" id="j-citric">${citric} g</div></div>`+
+    `<div class="juice-section-title">Zuren</div><div class="juice-output-row"><div class="juice-output"><label>Citroenzuur (citric acid)</label><div class="val" id="j-citric">${citric} g</div></div>`+
     (j.malicFactor>0?`<div class="juice-output"><label>Appelzuur (malic acid)</label><div class="val" id="j-malic">${malic} g</div></div>`:'')+`</div>`+
     `<div class="juice-section-title">Water</div><div class="water-block"><div class="water-label-row"><span>Verdeling totaal water</span><span class="water-total" id="j-water">Totaal: ${fmtML(waterTotal)}</span></div>`+
     `<div class="water-bar"><div class="water-seg a"><span class="w-lbl">Bij schillen (blender)</span><span class="w-amt" id="j-w-blend">${fmtML(water500)}</span></div><div class="water-seg b"><span class="w-lbl">Overig water</span><span class="w-amt" id="j-w-rest">${fmtML(waterRest)}</span></div></div>`+
     `<div class="water-note">Zet 500 ml apart voor de blender. De rest gaat in de maatbeker waar je doorheen zeeft.</div></div>`+
     `<div class="juice-section-title">Werkwijze</div><ol class="steps-list">${j.steps.map(s=>`<li>${s}</li>`).join('')}</ol>`+
-    `<div class="note-box" style="margin-top:1rem">${j.note}</div>`;
+    `<div class="note-box" style="margin-top:1rem">${j.note}</div>`+
+    `</div>`;
 }
+
+function selectJuice(i){ juiceIdx=i; juiceShellWeight=100; renderJuice(); scrollToDetail(); }
+
 function updateJuice(val){
   const w=parseFloat(val);if(isNaN(w)||w<=0)return;juiceShellWeight=w;const j=juices[juiceIdx];
   const citric=r(w*j.citricFactor,1);const malic=j.malicFactor>0?r(w*j.malicFactor,1):0;
@@ -1124,7 +1127,7 @@ function generateBatchFromCocktail(cocktailData){
 function showBatchGeneratedNotice(name){
   const notice = document.createElement('div');
   notice.style.cssText = 'position:fixed;bottom:90px;right:24px;background:var(--green-dark);border:1px solid var(--gold);border-radius:var(--radius);padding:.75rem 1.25rem;font-size:13px;color:var(--white);z-index:500;max-width:280px;line-height:1.5';
-  notice.innerHTML = `<strong style="color:var(--gold)">Batch aangemaakt</strong><br>Batch recept voor <em>${name}</em> is automatisch toegevoegd aan Batch 2026. Controleer en pas aan indien nodig.`;
+  notice.innerHTML = `<strong style="color:var(--gold)">Batch aangemaakt</strong><br>Batch recept voor <em>${name}</em> is automatisch toegevoegd aan de Batch calculator. Controleer en pas aan indien nodig.`;
   document.body.appendChild(notice);
   setTimeout(()=>notice.remove(), 5000);
 }
