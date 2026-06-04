@@ -1030,21 +1030,6 @@ function openEdit(type, idx){
 function updateModalFields(){
   const isBatch = currentEditType==='batch';
   const isSiroop = currentEditType==='siropen';
-  // Re-render existing ingredient rows with correct layout
-  const ingList = document.getElementById('ing-list');
-  if(ingList && ingList.children.length > 0){
-    const existingRows = [...ingList.querySelectorAll('.ing-row-edit')];
-    existingRows.forEach(row => {
-      const nameInput = row.querySelector('input[type="text"]');
-      const name = nameInput ? nameInput.value : '';
-      const amtInput = row.querySelector('input[type="number"], input[type="text"]:nth-child(2)');
-      const amt = amtInput ? amtInput.value : '';
-      const sel = row.querySelector('select');
-      const unit = sel ? sel.value : 'ml';
-      row.remove();
-      addIngRow(name, amt, unit);
-    });
-  }
   document.getElementById('batch-fields').style.display = isBatch?'block':'none';
   document.getElementById('specials-section').style.display = isBatch?'block':'none';
   document.getElementById('steps-section').style.display = isSiroop?'block':'none';
