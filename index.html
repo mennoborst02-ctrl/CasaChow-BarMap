@@ -283,10 +283,9 @@ body.edit-active .main{padding-bottom:80px}
 
     <!-- Syroop steps -->
     <div id="steps-section" style="display:none">
-      <div class="form-field">
-        <label>Benodigdheden</label>
-        <input type="text" id="f-supplies" placeholder="Pan, weegschaal, ...">
-      </div>
+      <div style="font-family:DM Mono,monospace;font-size:10px;color:var(--white-hint);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">Benodigdheden</div>
+      <div id="supplies-list"></div>
+      <button class="btn-add-ing" onclick="addSupplyRow()">+ Benodigdheid toevoegen</button>
       <div style="font-family:DM Mono,monospace;font-size:10px;color:var(--white-hint);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">Bereidingsstappen</div>
       <div id="steps-list"></div>
       <button class="btn-add-ing" onclick="addStepRow()">+ Stap toevoegen</button>
@@ -971,6 +970,7 @@ function showAddModal(){
   document.getElementById('ing-list').innerHTML = '';
   document.getElementById('specials-list').innerHTML = '';
   document.getElementById('steps-list').innerHTML = '';
+  document.getElementById('supplies-list').innerHTML = '';
   currentEditType = view==='syrups'?'siropen':view==='batch'?'batch':'section';
   addIngRow();
   buildSectiePills('sectie-pills', currentEditType==='section'?view:currentEditType, (id,el)=>{
@@ -1009,6 +1009,13 @@ function openEdit(type, idx){
     document.getElementById('specials-list').innerHTML='';
     (data.specials||[]).forEach(s=>addSpecialRow(s));
   } else if(currentEditType==='siropen'){
+    document.getElementById('supplies-list').innerHTML='';
+    (data.supplies||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>{
+      // Try to parse "naam — 50 ml" format
+      const m = s.match(/^(.+?)\s*[—-]\s*([\d.,]+)\s*(\w+)?$/);
+      if(m) addSupplyRow(m[1].trim(), m[2], m[3]||'');
+      else addSupplyRow(s);
+    });
     document.getElementById('steps-list').innerHTML='';
     (data.steps||[]).forEach(s=>addStepRow(s));
   } else {
@@ -1096,6 +1103,36 @@ function addSpecialRow(val=''){
   div.innerHTML = `<input type="text" placeholder="Special / garnering" value="${val}"><button class="btn-remove" onclick="this.parentElement.remove()">&times;</button>`;
   document.getElementById('specials-list').appendChild(div);
 }
+function addSupplyRow(name='', amt='', unit='ml'){
+  const div = document.createElement('div');
+  div.className = 'ing-row-edit';
+  const numVal = amt ? amt.toString().replace(/[^0-9.,]/g,'') : '';
+  let detectedUnit = unit || '';
+  if(typeof amt === 'string'){
+    if(amt.toLowerCase().includes('dash')) detectedUnit='dashes';
+    else if(amt.toLowerCase().includes('stuk')) detectedUnit='stuks';
+    else if(/\s*g$/.test(amt.trim()) && !amt.toLowerCase().includes('ml')) detectedUnit='g';
+  }
+  const inputStyle = 'background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--white);font-family:DM Sans,sans-serif;font-size:14px;padding:7px 10px;outline:none;width:100%';
+  const numStyle = 'background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--white);font-family:DM Mono,monospace;font-size:14px;padding:7px 8px;outline:none;text-align:right;-moz-appearance:textfield;width:100%';
+  const selStyle = 'background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--white);font-family:DM Sans,sans-serif;font-size:13px;padding:7px 6px;outline:none;cursor:pointer;width:100%';
+  const btnStyle = 'background:none;border:none;color:var(--white-hint);cursor:pointer;font-size:18px;line-height:1;padding:4px';
+  div.style.gridTemplateColumns = '1fr 70px 85px 32px';
+  div.innerHTML =
+    `<input type="text" placeholder="Benodigdheid" value="${name}" style="${inputStyle}">` +
+    `<input type="number" placeholder="0" value="${numVal}" min="0" step="any" style="${numStyle}">` +
+    `<select style="${selStyle}">` +
+      `<option value="" ${!detectedUnit?'selected':''}>&mdash;</option>` +
+      `<option value="ml" ${detectedUnit==='ml'?'selected':''}>ml</option>` +
+      `<option value="g" ${detectedUnit==='g'?'selected':''}>g</option>` +
+      `<option value="stuks" ${detectedUnit==='stuks'?'selected':''}>stuks</option>` +
+      `<option value="el" ${detectedUnit==='el'?'selected':''}>el</option>` +
+      `<option value="tl" ${detectedUnit==='tl'?'selected':''}>tl</option>` +
+    `</select>` +
+    `<button class="btn-remove" onclick="this.parentElement.remove()" style="${btnStyle}">&times;</button>`;
+  document.getElementById('supplies-list').appendChild(div);
+}
+
 function addStepRow(val=''){
   const div = document.createElement('div');
   div.className = 'ing-row-edit';
@@ -1184,7 +1221,17 @@ async function saveRecept(){
     sectie = 'batch';
   } else if(currentEditType==='siropen'){
     const steps = [...document.getElementById('steps-list').querySelectorAll('.ing-row-edit')].map(row=>row.querySelector('input').value.trim()).filter(Boolean);
-    data = {name:naam, supplies:document.getElementById('f-supplies').value.trim(), steps};
+    const suppliesArr = [...document.getElementById('supplies-list').querySelectorAll('.ing-row-edit')].map(row=>{
+      const inputs = row.querySelectorAll('input');
+      const sel = row.querySelector('select');
+      const name = inputs[0]?.value.trim();
+      const num = inputs[1]?.value.trim();
+      const unit = sel?.value || '';
+      if(!name) return null;
+      return num ? name + ' — ' + num + (unit?' '+unit:'') : name;
+    }).filter(Boolean);
+    const supplies = suppliesArr.join(', ');
+    data = {name:naam, supplies, steps};
     sectie = 'siropen';
   } else {
     const ings = [...document.getElementById('ing-list').querySelectorAll('.ing-row-edit')].map(row=>{
