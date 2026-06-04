@@ -567,6 +567,7 @@ let activeRecipeIdx = 0;
 let activeSyrupIdx = 0;
 let batchExpanded = true;
 let editMode = false;
+let currentSeasonId = 'zomer2026'; // updated on season switch
 let dbLoaded = false;
 
 // Live data (from DB or local fallback)
@@ -587,6 +588,7 @@ async function init(){
       liveSyropen = d.syropen || syropen;
       // Restore batch label
       if(d.batchLabel) window._currentBatchLabel = d.batchLabel;
+      if(d.currentSeasonId) currentSeasonId = d.currentSeasonId;
       setSync('');
     } catch(e){
       loadLocalFallback();
@@ -962,7 +964,6 @@ function showAddModal(){
   document.getElementById('f-naam').value = '';
   document.getElementById('f-note-batch').value = '';
   document.getElementById('f-note').value = '';
-  document.getElementById('f-supplies').value = '';
   document.getElementById('f-base').value = '10';
   document.getElementById('f-vriezer').value = 'nee';
   document.getElementById('delete-btn').style.display = 'none';
@@ -995,7 +996,6 @@ function openEdit(type, idx){
   document.getElementById('f-naam').value = data.name||'';
   document.getElementById('f-note-batch').value = data.note||'';
   document.getElementById('f-note').value = data.note||'';
-  document.getElementById('f-supplies').value = data.supplies||'';
   document.getElementById('f-base').value = data.base||10;
   document.getElementById('f-vriezer').value = (data.tags||[]).includes('vriezer')?'ja':'nee';
   document.getElementById('delete-btn').style.display = 'inline-block';
@@ -1139,10 +1139,6 @@ function isFresh(name){
 }
 
 function isNewestSeason(sectionId){
-  // The newest season matches the current batch label
-  const currentBatchLabel = 'Batch calculator';
-  const currentSeasonLabel = currentBatchLabel.replace('Batch ','').trim();
-  const currentSeasonId = currentSeasonLabel.toLowerCase().replace(/[^a-z0-9]/g,'');
   return sectionId === currentSeasonId;
 }
 
@@ -1256,12 +1252,9 @@ async function saveRecept(){
   if(currentEditType === 'section' && isNewestSeason(view) && currentEditIdx === -1){
     const batchData = generateBatchFromCocktail(data);
     if(batchData){
-      const batchResult = await sbInsert('recepten', {sectie:'batch', naam:batchData.name, data:batchData, volgorde:Date.now()});
-      if(!batchResult){
-        // Save locally
-        liveBatch.push(batchData);
-        saveLocal();
-      }
+      liveBatch.push(batchData);
+      saveLocal();
+      await sbInsert('recepten', {sectie:'batch', naam:batchData.name, data:batchData, volgorde:Date.now()});
       showBatchGeneratedNotice(batchData.name);
     }
   }
@@ -1370,6 +1363,7 @@ async function doSeasonSwitch(){
   
   // 4. Update batch label to new season, keep permanent cocktails in batch
   window._currentBatchLabel = 'Batch ' + newSeason;
+  currentSeasonId = newId;
   liveBatch = permanentCocktails; // Pornstar martini and any other permanents stay
   
   // 5. Try DB
