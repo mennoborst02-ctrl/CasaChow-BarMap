@@ -482,8 +482,7 @@ const sections = [
       {name:"Thai basil smash",ingredients:[{name:"Thai basil infused Hendricks",amt:"50 ml"},{name:"St. Germain",amt:"15 ml"},{name:"Suikerwater",amt:"10 ml"},{name:"Limoen",amt:"30 ml"},{name:"Saline",amt:""}]},
       {name:"Apple pear fizz",ingredients:[{name:"Calvados",amt:"45 ml"},{name:"St. Germain",amt:"25 ml"},{name:"Peersiroop",amt:"25 ml"},{name:"Citroen",amt:"15 ml"},{name:"Bruiswater",amt:"aftoppen"}]},
       {name:"Sultans of swing",ingredients:[{name:"Reposado tequila",amt:"40 ml"},{name:"PX Sherry",amt:"35 ml"},{name:"Angostura bitters",amt:"1 dash"},{name:"Suikerwater",amt:"5 ml"},{name:"Saline",amt:""}]},
-      {name:"Coco jambo",ingredients:[{name:"Malibu",amt:"50 ml"},{name:"Perziklikeur",amt:"20 ml"},{name:"Suikersiroop",amt:"10 ml"},{name:"Limoen",amt:"30 ml"},{name:"Saline",amt:""}]},
-      {name:"Pornstar martini",ingredients:[{name:"Vodka",amt:"50 ml"},{name:"Passievruchtpuree",amt:"60 ml"},{name:"Licor 43",amt:"20 ml"},{name:"Suikersiroop",amt:"10 ml"},{name:"Vanillesiroop",amt:"20 ml"},{name:"Foamee",amt:""}]}
+      {name:"Coco jambo",ingredients:[{name:"Malibu",amt:"50 ml"},{name:"Perziklikeur",amt:"20 ml"},{name:"Suikersiroop",amt:"10 ml"},{name:"Limoen",amt:"30 ml"},{name:"Saline",amt:""}]}
     ]
   },
   {
@@ -1263,14 +1262,27 @@ async function saveRecept(){
 async function deleteRecept(){
   if(!confirm('Weet je zeker dat je dit recept wilt verwijderen?')) return;
   const id = document.getElementById('edit-id').value;
-  if(!id) return;
   setSync('Verwijderen...');
-  await sbDelete('recepten', id);
+  
+  // Always remove locally first
+  if(currentEditType === 'batch'){
+    liveBatch = liveBatch.filter((_,i) => i !== currentEditIdx);
+  } else if(currentEditType === 'siropen'){
+    liveSyropen = liveSyropen.filter((_,i) => i !== currentEditIdx);
+  } else {
+    const sec = liveSections.find(s => s.id === view);
+    if(sec) sec.cocktails = sec.cocktails.filter((_,i) => i !== currentEditIdx);
+  }
+  saveLocal();
+  
+  // Also remove from DB if we have an id
+  if(id) await sbDelete('recepten', id);
+  
   setSync('Verwijderd ✓');
   setTimeout(()=>setSync(''),2000);
   closeModal('add-modal');
-  const rows = await sbGet('recepten');
-  if(rows){ loadFromDB(rows); saveLocal(); buildSidebar(); rerender(); }
+  buildSidebar();
+  rerender();
 }
 
 // ─── SEASON SWITCH ───────────────────────────────────────────────────────────
