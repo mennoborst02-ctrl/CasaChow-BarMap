@@ -971,8 +971,8 @@ function showAddModal(){
   document.getElementById('ing-list').innerHTML = '';
   document.getElementById('specials-list').innerHTML = '';
   document.getElementById('steps-list').innerHTML = '';
-  addIngRow();
   currentEditType = view==='syrups'?'siropen':view==='batch'?'batch':'section';
+  addIngRow();
   buildSectiePills('sectie-pills', currentEditType==='section'?view:currentEditType, (id,el)=>{
     currentEditType = id==='siropen'?'siropen':id==='batch'?'batch':'section';
     if(id!=='batch'&&id!=='siropen') view=id;
@@ -1003,7 +1003,8 @@ function openEdit(type, idx){
   
   // Fill ingredients
   document.getElementById('ing-list').innerHTML='';
-  if(currentEditType==='batch'){
+  const isBatch = currentEditType==='batch' || document.querySelector('#sectie-pills .tab-pill.active')?.dataset?.id==='batch';
+  if(isBatch){
     (data.ingredients||[]).forEach(i=>addIngRow(i.name, i.ml+'', i.unit||'ml'));
     document.getElementById('specials-list').innerHTML='';
     (data.specials||[]).forEach(s=>addSpecialRow(s));
@@ -1022,6 +1023,21 @@ function openEdit(type, idx){
 function updateModalFields(){
   const isBatch = currentEditType==='batch';
   const isSiroop = currentEditType==='siropen';
+  // Re-render existing ingredient rows with correct layout
+  const ingList = document.getElementById('ing-list');
+  if(ingList && ingList.children.length > 0){
+    const existingRows = [...ingList.querySelectorAll('.ing-row-edit')];
+    existingRows.forEach(row => {
+      const nameInput = row.querySelector('input[type="text"]');
+      const name = nameInput ? nameInput.value : '';
+      const amtInput = row.querySelector('input[type="number"], input[type="text"]:nth-child(2)');
+      const amt = amtInput ? amtInput.value : '';
+      const sel = row.querySelector('select');
+      const unit = sel ? sel.value : 'ml';
+      row.remove();
+      addIngRow(name, amt, unit);
+    });
+  }
   document.getElementById('batch-fields').style.display = isBatch?'block':'none';
   document.getElementById('specials-section').style.display = isBatch?'block':'none';
   document.getElementById('steps-section').style.display = isSiroop?'block':'none';
@@ -1034,31 +1050,43 @@ function updateModalFields(){
 function addIngRow(name='', amt='', unit='ml'){
   const div = document.createElement('div');
   div.className = 'ing-row-edit';
-  if(currentEditType==='batch'){
-    // Batch: separate number + unit selector
-    const numVal = amt ? amt.toString().replace(/[^0-9.,]/g,'') : '';
-    // detect unit from amt string
-    let detectedUnit = 'ml';
-    if(typeof amt === 'string'){
-      if(amt.includes('dash')) detectedUnit='dashes';
-      else if(amt.includes('stuk') || amt.includes('stuks')) detectedUnit='stuks';
-      else if(amt.includes(' g') || amt.endsWith('g')) detectedUnit='g';
-    }
-    if(unit && unit!=='ml') detectedUnit=unit;
-    div.style.gridTemplateColumns='1fr 70px 90px 32px';
-    div.innerHTML = `<input type="text" placeholder="Naam" value="${name}">` +
-      `<input type="number" placeholder="0" value="${numVal}" min="0" step="any" class="ing-amount-input">` +
-      `<select class="ing-unit-select" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--white);font-size:13px;padding:7px 6px;outline:none">` +
-      `<option value="ml" ${detectedUnit==='ml'?'selected':''}>ml</option>` +
-      `<option value="dashes" ${detectedUnit==='dashes'?'selected':''}>dashes</option>` +
-      `<option value="stuks" ${detectedUnit==='stuks'?'selected':''}>stuks</option>` +
-      `<option value="g" ${detectedUnit==='g'?'selected':''}>g</option>` +
-      `</select>` +
-      `<button class="btn-remove" onclick="this.parentElement.remove()">&times;</button>`;
-  } else {
-    // Section/losse cocktail: free text amount
-    div.innerHTML = `<input type="text" placeholder="Naam" value="${name}"><input type="text" placeholder="Hoeveelheid" value="${amt}"><button class="btn-remove" onclick="this.parentElement.remove()">&times;</button>`;
+  
+  // Detect unit from amt string
+  let detectedUnit = unit || 'ml';
+  if(typeof amt === 'string'){
+    if(amt.toLowerCase().includes('dash')) detectedUnit='dashes';
+    else if(amt.toLowerCase().includes('stuk')) detectedUnit='stuks';
+    else if(/\s*g$/.test(amt.trim()) && !amt.toLowerCase().includes('ml')) detectedUnit='g';
+    else if(amt.toLowerCase().includes(' el') || amt.toLowerCase().endsWith('el')) detectedUnit='el';
+    else if(amt.toLowerCase().includes(' tl') || amt.toLowerCase().endsWith('tl')) detectedUnit='tl';
   }
+  
+  // Parse numeric value from amt string
+  const numVal = amt ? amt.toString().replace(/[^0-9.,]/g,'') : '';
+  
+  const inputStyle = 'background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--white);font-family:DM Sans,sans-serif;font-size:14px;padding:7px 10px;outline:none;width:100%';
+  const numStyle = 'background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--white);font-family:DM Mono,monospace;font-size:14px;padding:7px 8px;outline:none;text-align:right;-moz-appearance:textfield;width:100%';
+  const selStyle = 'background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--white);font-family:DM Sans,sans-serif;font-size:13px;padding:7px 6px;outline:none;cursor:pointer;width:100%';
+  const btnStyle = 'background:none;border:none;color:var(--white-hint);cursor:pointer;font-size:18px;line-height:1;padding:4px';
+  
+  const unitSelect = 
+    `<select class="ing-unit-select" style="${selStyle}">` +
+    `<option value="ml" ${detectedUnit==='ml'?'selected':''}>ml</option>` +
+    `<option value="dashes" ${detectedUnit==='dashes'?'selected':''}>dashes</option>` +
+    `<option value="stuks" ${detectedUnit==='stuks'?'selected':''}>stuks</option>` +
+    `<option value="g" ${detectedUnit==='g'?'selected':''}>g</option>` +
+    `<option value="el" ${detectedUnit==='el'?'selected':''}>el</option>` +
+    `<option value="tl" ${detectedUnit==='tl'?'selected':''}>tl</option>` +
+    `</select>`;
+
+  // Always: naam | getal | eenheid | verwijder
+  div.style.gridTemplateColumns = '1fr 70px 85px 32px';
+  div.innerHTML =
+    `<input type="text" placeholder="Naam" value="${name}" style="${inputStyle}">` +
+    `<input type="number" placeholder="0" value="${numVal}" min="0" step="any" class="ing-amount-input" style="${numStyle}">` +
+    unitSelect +
+    `<button class="btn-remove" onclick="this.parentElement.remove()" style="${btnStyle}">&times;</button>`;
+
   document.getElementById('ing-list').appendChild(div);
 }
 function addSpecialRow(val=''){
@@ -1161,7 +1189,11 @@ async function saveRecept(){
   } else {
     const ings = [...document.getElementById('ing-list').querySelectorAll('.ing-row-edit')].map(row=>{
       const inputs=row.querySelectorAll('input');
-      return {name:inputs[0].value.trim(), amt:inputs[1].value.trim()};
+      const sel=row.querySelector('select');
+      const num=inputs[1]?.value.trim()||'';
+      const unit=sel?sel.value:'';
+      const amt = num && unit ? num+' '+unit : (num||inputs[1]?.value.trim()||'');
+      return {name:inputs[0].value.trim(), amt:amt};
     }).filter(i=>i.name);
     data = {name:naam, ingredients:ings, note:document.getElementById('f-note').value.trim()};
     sectie = view;
