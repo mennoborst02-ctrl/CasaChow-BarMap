@@ -576,29 +576,25 @@ let liveSyropen = [];
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
 async function init(){
-  // Load from localStorage first (instant)
+  // Show something instantly from localStorage while Supabase loads
   const stored = localStorage.getItem('casachow_data');
   if(stored){
     try{
       const d = JSON.parse(stored);
-      // If stored batch is empty but we have hardcoded data, prefer hardcoded
       liveBatch = (d.batch && d.batch.length > 0) ? d.batch : batchCocktails;
       liveSections = d.sections || sections;
       liveSyropen = d.syropen || syropen;
-      // Restore batch label
       if(d.batchLabel) window._currentBatchLabel = d.batchLabel;
       if(d.currentSeasonId) currentSeasonId = d.currentSeasonId;
-      setSync('');
-    } catch(e){
-      loadLocalFallback();
-    }
+    } catch(e){ loadLocalFallback(); }
   } else {
-    // First time - use built-in data and save to localStorage
     loadLocalFallback();
-    saveLocal();
   }
-  
-  // Try Supabase in background (optional sync)
+  buildSidebar();
+  renderBatch();
+
+  // Always load from Supabase (priority over localStorage)
+  setSync('Laden...');
   try {
     const rows = await sbGet('recepten');
     if(rows && rows.length > 0){
@@ -606,16 +602,18 @@ async function init(){
       loadFromDB(rows);
       saveLocal();
       setSync('');
+      buildSidebar();
+      rerender();
     } else if(rows !== null){
       // DB empty, seed it
       await seedDB();
+    } else {
+      setSync('Offline');
     }
   } catch(e){
     console.warn('Supabase niet beschikbaar, gebruik lokale opslag', e);
+    setSync('Offline');
   }
-  
-  buildSidebar();
-  renderBatch();
 }
 
 function loadLocalFallback(){
@@ -739,7 +737,7 @@ function renderBatch(){
     return `<tr><td>${ing.name}</td><td><div class="ing-input-wrap"><input class="ing-input" type="number" min="0" step="any" value="${r(ing.ml*batchScale)}" data-idx="${idx}" data-base="${ing.ml}" data-unit="ml" oninput="lockToIng(this)"><span class="ing-unit">ml</span></div></td></tr>`;
   }).join('');
   const specialRows=(c.specials||[]).map(s=>`<tr><td class="ing-special">${s}</td><td></td></tr>`).join('');
-  const cards=liveBatch.map((bc,i)=>`<div class="recipe-card recipe-card-edit${i===batchIdx?' active':''}" onclick="selectBatch(${i})">${editCardBtn('batch',i)}<div class="recipe-card-name">${bc.name}</div><div class="recipe-card-meta">${bc.ingredients.length} ingrediënten${(bc.tags||[]).includes('vriezer')?' &mdash; vriezer':''}${bc.permanent?' &mdash; altijd':''}  </div></div>`).join('');
+  const cards=liveBatch.map((bc,i)=>`<div class="recipe-card recipe-card-edit${i===batchIdx?' active':''}" onclick="selectBatch(${i})">${editCardBtn('batch',i)}<div class="recipe-card-name">${bc.name}</div><div class="recipe-card-meta">${bc.ingredients.length} ingrediënten${(bc.tags||[]).includes('vriezer')?' &mdash; vriezer':''}</div></div>`).join('');
   document.getElementById('main').innerHTML=
     `<div class="page-title">Batch calculator</div><div class="page-sub">Batch calculator &mdash; basisrecept &times; ${c.base} glazen</div>`+
     `<div class="recipe-grid">${cards}</div>`+
@@ -1197,7 +1195,8 @@ async function saveRecept(){
       return {name, ml: 0, amt: amt, unit: unit};
     }).filter(Boolean);
     const specials = [...document.getElementById('specials-list').querySelectorAll('.ing-row-edit')].map(row=>row.querySelector('input').value.trim()).filter(Boolean);
-    data = {name:naam, ingredients:ings, specials, base:parseInt(document.getElementById('f-base').value)||10, tags:document.getElementById('f-vriezer').value==='ja'?['vriezer']:[], note:document.getElementById('f-note-batch').value.trim()};
+    const existingPermanent = currentEditIdx >= 0 && liveBatch[currentEditIdx]?.permanent;
+    data = {name:naam, ingredients:ings, specials, base:parseInt(document.getElementById('f-base').value)||10, tags:document.getElementById('f-vriezer').value==='ja'?['vriezer']:[], note:document.getElementById('f-note-batch').value.trim(), ...(existingPermanent ? {permanent:true} : {})};
     sectie = 'batch';
   } else if(currentEditType==='siropen'){
     const steps = [...document.getElementById('steps-list').querySelectorAll('.ing-row-edit')].map(row=>row.querySelector('input').value.trim()).filter(Boolean);
