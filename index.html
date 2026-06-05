@@ -1264,16 +1264,18 @@ async function deleteRecept(){
   const id = document.getElementById('edit-id').value;
   setSync('Verwijderen...');
   
-  // Always remove locally first
+  // Remove locally - use both name and index for reliability
+  const deleteName = document.getElementById('f-naam').value.trim();
   if(currentEditType === 'batch'){
-    liveBatch = liveBatch.filter((_,i) => i !== currentEditIdx);
+    liveBatch = liveBatch.filter((c,i) => i !== currentEditIdx && c.name !== deleteName);
   } else if(currentEditType === 'siropen'){
-    liveSyropen = liveSyropen.filter((_,i) => i !== currentEditIdx);
+    liveSyropen = liveSyropen.filter((c,i) => i !== currentEditIdx && c.name !== deleteName);
   } else {
     const sec = liveSections.find(s => s.id === view);
-    if(sec) sec.cocktails = sec.cocktails.filter((_,i) => i !== currentEditIdx);
+    if(sec) sec.cocktails = sec.cocktails.filter((c,i) => i !== currentEditIdx && c.name !== deleteName);
   }
   saveLocal();
+  console.log('Deleted locally:', deleteName, 'type:', currentEditType, 'idx:', currentEditIdx);
   
   // Also remove from DB if we have an id
   if(id) await sbDelete('recepten', id);
