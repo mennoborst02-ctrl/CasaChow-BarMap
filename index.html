@@ -135,6 +135,26 @@ body{background:var(--cream);color:var(--green-dark);font-family:DM Sans,sans-se
 }
 </style>
 <style>
+/* ── MEPLIJST ── */
+.meplijst-btn{border-bottom:2px solid var(--gold);margin-bottom:.25rem;color:var(--green-dark) !important;font-weight:500}
+.meplijst-btn.active{background:rgba(200,160,32,0.15) !important;border-left-color:var(--gold) !important}
+.mep-section-title{font-family:Bebas Neue,sans-serif;font-size:13px;color:var(--gold);letter-spacing:.12em;margin:1.25rem 0 .5rem;opacity:.7;text-transform:uppercase}
+.mep-item{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .15s}
+.mep-item:last-child{border-bottom:none}
+.mep-item.done{opacity:.45}
+.mep-check{width:22px;height:22px;border:2px solid var(--border2);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s}
+.mep-item.done .mep-check{background:var(--gold);border-color:var(--gold)}
+.mep-check svg{width:13px;height:13px;fill:var(--green-dark);display:none}
+.mep-item.done .mep-check svg{display:block}
+.mep-name{font-size:14px;color:var(--white);flex:1}
+.mep-item.done .mep-name{text-decoration:line-through;color:var(--white-hint)}
+.mep-note{font-size:12px;color:var(--white-hint);font-style:italic}
+.mep-week{font-family:DM Mono,monospace;font-size:11px;color:var(--hint-on-green);text-transform:uppercase;letter-spacing:.08em;margin-bottom:1rem}
+.mep-reset-btn{background:none;border:1px solid var(--border2);color:var(--white-hint);border-radius:var(--radius);font-size:12px;padding:5px 12px;cursor:pointer;transition:border-color .15s}
+.mep-reset-btn:hover{border-color:var(--gold);color:var(--gold)}
+.mep-progress{height:4px;background:rgba(255,255,255,0.1);border-radius:2px;margin-bottom:1.5rem;overflow:hidden}
+.mep-progress-bar{height:100%;background:var(--gold);border-radius:2px;transition:width .3s}
+
 /* ── EDIT MODE ── */
 .edit-fab{position:fixed;bottom:24px;right:24px;z-index:200;background:var(--green);border:2px solid var(--gold);border-radius:50%;width:52px;height:52px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.3);transition:background .15s}
 .edit-fab:hover{background:var(--green-dark)}
@@ -590,6 +610,7 @@ async function init(){
   } else {
     loadLocalFallback();
   }
+  await loadMepState();
   buildSidebar();
   renderBatch();
 
@@ -684,6 +705,7 @@ function setSync(msg){ document.getElementById('sync-status').textContent = msg;
 function buildSidebar(){
   const sb = document.getElementById('sidebar');
   let h = '';
+  h += `<button class="tab-btn sidebar-section meplijst-btn${view==='meplijst'?' active':''}" onclick="showMeplijst()">&#9745; Meplijst</button>`;
   const batchLabel = 'Batch calculator';
   h += `<button class='tab-btn sidebar-section${view==='batch'?' active':''}' onclick='showBatch(0)'>${batchLabel}</button>`;
   
@@ -1482,6 +1504,221 @@ async function saveImport(){
 }
 
 function closeModal(id){ document.getElementById(id).classList.remove('visible'); }
+
+// ─── MEPLIJST ────────────────────────────────────────────────────────────────
+
+// Default meplijst items (can be extended)
+const MEP_CATEGORIES = [
+  {
+    label: "Garnituren snijden / drogen",
+    items: ["Citroenen","Limoenen","Sinaasappels","Gember","Passievrucht","Ananas (drogen)","Citroen (drogen)","Limoen (drogen)","Grapefruit (drogen)","Peer (drogen)"]
+  },
+  {
+    label: "Cocktails batchen",
+    items: [] // filled dynamically from liveBatch
+  },
+  {
+    label: "Siropen & Infusies",
+    items: ["Rabarber aardbei cordial","Thai basil infused Hendricks","Peersiroop","Passievruchtsiroop","Gembersiroop","Limoen acid","Citroen acid"]
+  },
+  {
+    label: "Overig",
+    items: ["IJs zakken voor in vriezer"]
+  }
+];
+
+const DAYS = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
+const DAY_OPTIONS = ['','M','C','Uit','B','AFM'];
+const DAY_COLORS = {'M':'rgba(200,160,32,0.3)','C':'rgba(90,200,90,0.25)','Uit':'rgba(90,160,220,0.25)','B':'rgba(220,90,90,0.25)','AFM':'rgba(160,90,220,0.25)'};
+
+let mepState = {}; // {week: 'YYYY-WW', items: {itemKey: {done, note}}}
+
+function getWeekKey(){
+  const d = new Date();
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+  return d.getFullYear() + '-W' + String(week).padStart(2,'0');
+}
+
+function getWeekLabel(){
+  const d = new Date();
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const fmt = dt => dt.getDate() + ' ' + ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'][dt.getMonth()];
+  return fmt(monday) + ' – ' + fmt(sunday) + ' ' + d.getFullYear();
+}
+
+async function loadMepState(){
+  const week = getWeekKey();
+  // Try localStorage first
+  const stored = localStorage.getItem('casachow_mep_' + week);
+  if(stored){ try{ mepState = JSON.parse(stored); return; }catch(e){} }
+  // Try Supabase
+  try{
+    const rows = await sbGet('meplijst', 'week=eq.' + week);
+    if(rows && rows.length > 0){
+      mepState = {week, items: rows[0].data || {}};
+    } else {
+      mepState = {week, items: {}};
+    }
+  } catch(e){
+    mepState = {week, items: {}};
+  }
+  saveMepState();
+}
+
+function saveMepState(){
+  localStorage.setItem('casachow_mep_' + mepState.week, JSON.stringify(mepState));
+  // Sync to Supabase
+  sbGet('recepten','sectie=eq.meplijst').then(rows => {
+    const weekRow = rows ? rows.find(r => r.naam === mepState.week) : null;
+    if(weekRow){
+      sbUpdate('recepten', weekRow.id, {data: mepState.items}).catch(()=>{});
+    } else {
+      sbInsert('recepten', {sectie:'meplijst', naam:mepState.week, data:mepState.items, volgorde:0}).catch(()=>{});
+    }
+  }).catch(()=>{});
+}
+
+function toggleMepItem(key, day, currentVal){
+  if(!mepState.items) mepState.items = {};
+  if(!mepState.items[key]) mepState.items[key] = {};
+  // Cycle through options
+  const idx = DAY_OPTIONS.indexOf(currentVal);
+  const next = DAY_OPTIONS[(idx + 1) % DAY_OPTIONS.length];
+  if(next === '') {
+    delete mepState.items[key][day];
+    if(Object.keys(mepState.items[key]).length === 0) delete mepState.items[key];
+  } else {
+    mepState.items[key][day] = next;
+  }
+  saveMepState();
+  renderMeplijst();
+}
+
+function resetMeplijst(){
+  if(!confirm('Nieuwe week starten? Dit wist alle vinkjes.')) return;
+  mepState = {week: getWeekKey(), items: {}};
+  saveMepState();
+  renderMeplijst();
+}
+
+function getMepCustomItems(){
+  // Get custom items from localStorage
+  try{ return JSON.parse(localStorage.getItem('casachow_mep_custom') || '{}'); }
+  catch(e){ return {}; }
+}
+
+function saveMepCustomItems(custom){
+  localStorage.setItem('casachow_mep_custom', JSON.stringify(custom));
+  // Sync to Supabase
+  sbGet('recepten','sectie=eq.mep_custom').then(rows => {
+    if(rows && rows.length > 0){
+      sbUpdate('recepten', rows[0].id, {data: custom}).catch(()=>{});
+    } else {
+      sbInsert('recepten', {sectie:'mep_custom', naam:'custom', data:custom, volgorde:0}).catch(()=>{});
+    }
+  }).catch(()=>{});
+}
+
+function addMepItem(catLabel){
+  const name = prompt('Naam van het nieuwe item:');
+  if(!name || !name.trim()) return;
+  const custom = getMepCustomItems();
+  if(!custom[catLabel]) custom[catLabel] = [];
+  if(!custom[catLabel].includes(name.trim())) custom[catLabel].push(name.trim());
+  saveMepCustomItems(custom);
+  renderMeplijst();
+}
+
+function deleteMepItem(catLabel, itemName){
+  if(!confirm('"' + itemName + '" verwijderen uit de meplijst?')) return;
+  const custom = getMepCustomItems();
+  // Mark as deleted
+  if(!custom['__deleted__']) custom['__deleted__'] = [];
+  if(!custom['__deleted__'].includes(catLabel + '::' + itemName)){
+    custom['__deleted__'].push(catLabel + '::' + itemName);
+  }
+  // Also remove from custom additions if present
+  if(custom[catLabel]) custom[catLabel] = custom[catLabel].filter(i => i !== itemName);
+  saveMepCustomItems(custom);
+  renderMeplijst();
+}
+
+function showMeplijst(){ view='meplijst'; buildSidebar(); renderMeplijst(); closeSidebar(); }
+
+function renderMeplijst(){
+  const cats = MEP_CATEGORIES.map(c => ({...c, items: [...c.items]}));
+  const batchCat = cats.find(c => c.label === 'Cocktails batchen');
+  if(batchCat) batchCat.items = liveBatch.map(b => b.name);
+  if(!mepState.items) mepState.items = {};
+  
+  // Apply custom items (additions and deletions)
+  const custom = getMepCustomItems();
+  const deleted = custom['__deleted__'] || [];
+  cats.forEach(cat => {
+    // Add custom items
+    if(custom[cat.label]) custom[cat.label].forEach(item => { if(!cat.items.includes(item)) cat.items.push(item); });
+    // Remove deleted items
+    cat.items = cat.items.filter(item => !deleted.includes(cat.label + '::' + item));
+  });
+
+  let html = `<div class="page-title">Meplijst</div>`;
+  html += `<div class="mep-week">${getWeekLabel()}</div>`;
+  
+  // Header row with days
+  html += `<div style="overflow-x:auto">`;
+  html += `<table style="width:100%;border-collapse:collapse;min-width:520px">`;
+  html += `<thead><tr>`;
+  html += `<th style="text-align:left;font-family:DM Mono,monospace;font-size:10px;color:var(--white-hint);font-weight:400;padding:0 0 8px;letter-spacing:.08em;text-transform:uppercase">Item</th>`;
+  DAYS.forEach(d => {
+    html += `<th style="font-family:DM Mono,monospace;font-size:10px;color:var(--white-hint);font-weight:400;padding:0 4px 8px;letter-spacing:.06em;text-align:center;min-width:36px">${d}</th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  cats.forEach(cat => {
+    if(cat.items.length === 0) return;
+    // Category header row
+    const addBtn = editMode ? `<button onclick="addMepItem('${cat.label.replace(/'/g,"\'")}')" style="background:none;border:1px dashed rgba(200,160,32,0.4);border-radius:4px;color:var(--gold);font-size:11px;padding:2px 8px;cursor:pointer;margin-left:8px;vertical-align:middle">+</button>` : '';
+    html += `<tr><td colspan="8" style="font-family:Bebas Neue,sans-serif;font-size:13px;color:var(--gold);letter-spacing:.12em;padding:14px 0 4px;opacity:.7">${cat.label}${addBtn}</td></tr>`;
+    
+    cat.items.forEach(item => {
+      const itemData = mepState.items[item] || {};
+      const delBtn = editMode ? `<button onclick="deleteMepItem('${cat.label.replace(/'/g,"\'")}','${item.replace(/'/g,"\'")}');event.stopPropagation()" style="background:none;border:none;color:rgba(255,80,80,0.5);cursor:pointer;font-size:14px;padding:0 4px;vertical-align:middle">&times;</button>` : '';
+      html += `<tr>`;
+      html += `<td style="font-size:13px;color:var(--white);padding:5px 0;border-bottom:1px solid var(--border)">${item}${delBtn}</td>`;
+      DAYS.forEach(day => {
+        const val = itemData[day] || '';
+        const bg = val ? DAY_COLORS[val] || 'rgba(255,255,255,0.1)' : 'transparent';
+        html += `<td style="text-align:center;padding:3px 2px;border-bottom:1px solid var(--border)">`;
+        html += `<button onclick="toggleMepItem('${item.replace(/'/g,"\'")}','${day}','${val}')" ` +
+          `style="background:${bg};border:1px solid ${val?'rgba(255,255,255,0.2)':'var(--border)'};border-radius:4px;` +
+          `color:var(--white);font-family:DM Mono,monospace;font-size:10px;padding:3px 2px;cursor:pointer;` +
+          `width:32px;min-height:24px;transition:background .1s;line-height:1">${val||'&nbsp;'}</button>`;
+        html += `</td>`;
+      });
+      html += `</tr>`;
+    });
+  });
+
+  html += `</tbody></table></div>`;
+  
+  // Legend
+  html += `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)">`;
+  const legend = {M:'Maken',C:'Checken',Uit:'Uithalen',B:'Bestellen',AFM:'Afmaken'};
+  Object.entries(legend).forEach(([k,v]) => {
+    html += `<div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--white-muted)">`;
+    html += `<span style="background:${DAY_COLORS[k]};border:1px solid rgba(255,255,255,0.2);border-radius:3px;padding:1px 5px;font-family:DM Mono,monospace;font-size:10px;color:var(--white)">${k}</span>${v}`;
+    html += `</div>`;
+  });
+  html += `</div>`;
+  
+  html += `<div style="margin-top:1rem"><button class="mep-reset-btn" onclick="resetMeplijst()">Nieuwe week starten</button></div>`;
+
+  document.getElementById('main').innerHTML = html;
+}
 
 // ─── START ───────────────────────────────────────────────────────────────────
 // Reset local storage if ?reset=1 in URL (emergency reset)
