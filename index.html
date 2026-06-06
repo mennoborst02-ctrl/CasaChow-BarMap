@@ -1647,7 +1647,14 @@ function deleteMepItem(catLabel, itemName){
   renderMeplijst();
 }
 
-function showMeplijst(){ view='meplijst'; buildSidebar(); renderMeplijst(); closeSidebar(); }
+function showMeplijst(){ 
+  view='meplijst'; 
+  buildSidebar(); 
+  renderMeplijst(); 
+  closeSidebar();
+  // Always refresh from Supabase when opening
+  loadMepState().then(() => renderMeplijst());
+}
 
 function renderMeplijst(){
   const cats = MEP_CATEGORIES.map(c => ({...c, items: [...c.items]}));
