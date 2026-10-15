@@ -604,7 +604,6 @@ async function init(){
       liveBatch = (d.batch && d.batch.length > 0) ? d.batch : batchCocktails;
       liveSections = d.sections || sections;
       liveSyropen = d.syropen || syropen;
-      if(d.batchLabel) window._currentBatchLabel = d.batchLabel;
       if(d.currentSeasonId) currentSeasonId = d.currentSeasonId;
     } catch(e){ loadLocalFallback(); }
   } else {
@@ -649,7 +648,7 @@ function saveLocal(){
       batch: liveBatch,
       sections: liveSections,
       syropen: liveSyropen,
-      batchLabel: 'Batch calculator'
+      currentSeasonId: currentSeasonId
     }));
   } catch(e){ console.warn('localStorage vol', e); }
 }
@@ -672,15 +671,18 @@ function loadFromDB(rows){
     sectionMap[r.sectie].push({...r.data, _id: r.id});
   });
 
-  // Maintain section order; include known sections even if empty (e.g. new season)
+  // Build sections: currentSeasonId always first, then others
   const knownOrder = sections.map(s=>s.id);
   const dbSectionIds = Object.keys(sectionMap);
   const allIds = [...new Set([...knownOrder, ...dbSectionIds])];
 
-  // Also include currentSeasonId even if empty
-  if(!allIds.includes(currentSeasonId)) allIds.unshift(currentSeasonId);
+  // Ensure currentSeasonId is in the list
+  if(!allIds.includes(currentSeasonId)) allIds.push(currentSeasonId);
 
-  liveSections = allIds.map(id=>{
+  // Remove currentSeasonId from wherever it is, put it at the front
+  const reordered = [currentSeasonId, ...allIds.filter(id=>id!==currentSeasonId)];
+
+  liveSections = reordered.map(id=>{
     const local = sections.find(s=>s.id===id);
     // Derive label: prefer local definition, then capitalise the id nicely
     const label = local ? local.label : id.replace(/([a-z])(\d)/,'$1 $2').replace(/^./,c=>c.toUpperCase());
@@ -718,7 +720,10 @@ function buildSidebar(){
   const sb = document.getElementById('sidebar');
   let h = '';
   h += `<button class="tab-btn sidebar-section meplijst-btn${view==='meplijst'?' active':''}" onclick="showMeplijst()">&#9745; Meplijst</button>`;
-  const batchLabel = 'Batch calculator';
+  // Show current season name in batch label
+  const currentSeasonSection = liveSections.find(s=>s.id===currentSeasonId);
+  const currentSeasonLabel = currentSeasonSection ? currentSeasonSection.label : currentSeasonId.replace(/([a-z])(\d)/,'$1 $2').replace(/^./,c=>c.toUpperCase());
+  const batchLabel = 'Batch ' + currentSeasonLabel;
   h += `<button class='tab-btn sidebar-section${view==='batch'?' active':''}' onclick='showBatch(0)'>${batchLabel}</button>`;
   
   h += `<button class="tab-btn sidebar-section${view==='juice'?' active':''}" onclick="showJuice(0)">Citroen/Limoen Acids</button>`;
@@ -758,7 +763,8 @@ function editCardBtn(type, idx){
 // ─── BATCH ───────────────────────────────────────────────────────────────────
 function renderBatch(){
   const c = liveBatch[batchIdx] || liveBatch[0];
-  if(!c){ document.getElementById('main').innerHTML='<div class="page-title">Batch calculator</div><div class="page-sub">Geen recepten</div>'; return; }
+  const _batchPageTitle = (()=>{ const s=liveSections.find(s=>s.id===currentSeasonId); return 'Batch '+(s?s.label:currentSeasonId.replace(/([a-z])(\d)/,'$1 $2').replace(/^./,c=>c.toUpperCase())); })();
+  if(!c){ document.getElementById('main').innerHTML=`<div class="page-title">${_batchPageTitle}</div><div class="page-sub">Geen recepten</div>`; return; }
   const glasses=r(c.base*batchScale,1);
   const baseTotalMl=c.ingredients.reduce((s,i)=>s+i.ml,0);
   const scaledTotal=r(baseTotalMl*batchScale);
@@ -773,7 +779,7 @@ function renderBatch(){
   const specialRows=(c.specials||[]).map(s=>`<tr><td class="ing-special">${s}</td><td></td></tr>`).join('');
   const cards=liveBatch.map((bc,i)=>`<div class="recipe-card recipe-card-edit${i===batchIdx?' active':''}" onclick="selectBatch(${i})">${editCardBtn('batch',i)}<div class="recipe-card-name">${bc.name}</div><div class="recipe-card-meta">${bc.ingredients.length} ingrediënten${(bc.tags||[]).includes('vriezer')?' &mdash; vriezer':''}</div></div>`).join('');
   document.getElementById('main').innerHTML=
-    `<div class="page-title">Batch calculator</div><div class="page-sub">Batch calculator &mdash; basisrecept &times; ${c.base} glazen</div>`+
+    `<div class="page-title">${_batchPageTitle}</div><div class="page-sub">${_batchPageTitle} &mdash; basisrecept &times; ${c.base} glazen</div>`+
     `<div class="recipe-grid">${cards}</div>`+
     `<div class="recipe-detail"><div class="recipe-detail-title">${c.name}</div>`+
     `<div class="scale-row"><div class="scale-field"><label>Aantal glazen</label><input type="number" min="1" step="1" id="inp-glasses" value="${glasses}" oninput="scaleByGlasses(this.value)"></div><div class="scale-field"><label>Schaalfactor</label><input type="number" min="0.1" step="0.5" id="inp-factor" value="${r(batchScale)}" oninput="scaleByFactor(this.value)"></div><div class="scale-field"><label>Totaal batch</label><input type="number" min="0" step="any" id="inp-total" value="${scaledTotal}" oninput="scaleByTotal(this.value,${baseTotalMl})"></div></div>`+
