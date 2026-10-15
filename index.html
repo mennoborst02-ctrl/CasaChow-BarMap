@@ -1358,10 +1358,9 @@ async function doSeasonSwitch(){
   
   setSync('Seizoen wisselen...');
   
-  // 1. Figure out current season label from batch label
-  const currentBatchLabel = 'Batch calculator';
-  const currentSeasonLabel = currentBatchLabel.replace('Batch ','').trim(); // e.g. "Zomer 2026"
-  const currentSeasonId = currentSeasonLabel.toLowerCase().replace(/[^a-z0-9]/g,''); // e.g. "zomer2026"
+  // 1. Use global currentSeasonId + derive its label from liveSections
+  const currentSeasonSection = liveSections.find(s=>s.id===currentSeasonId);
+  const currentSeasonLabel = currentSeasonSection ? currentSeasonSection.label : currentSeasonId;
   
   // Separate permanent cocktails (stay in batch forever) from seasonal ones
   const permanentCocktails = liveBatch.filter(c=>c.permanent);
