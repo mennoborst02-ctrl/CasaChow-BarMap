@@ -655,29 +655,41 @@ function saveLocal(){
 }
 
 function loadFromDB(rows){
+  // Handle _meta rows
+  const metaRows = rows.filter(r=>r.sectie==='_meta');
+  metaRows.forEach(r=>{
+    if(r.naam==='currentSeasonId' && r.data?.value) currentSeasonId = r.data.value;
+  });
+
   liveBatch = rows.filter(r=>r.sectie==='batch').map(r=>r.data);
   liveSyropen = rows.filter(r=>r.sectie==='siropen').map(r=>{return {...r.data, _id: r.id}});
-  
-  // Build sections from DB
+
+  // Build sections from DB (exclude system rows)
+  const systemSections = new Set(['batch','siropen','juice','_meta','meplijst','mep_custom']);
   const sectionMap = {};
-  rows.filter(r=>r.sectie!=='batch'&&r.sectie!=='siropen'&&r.sectie!=='juice').forEach(r=>{
+  rows.filter(r=>!systemSections.has(r.sectie)).forEach(r=>{
     if(!sectionMap[r.sectie]) sectionMap[r.sectie] = [];
     sectionMap[r.sectie].push({...r.data, _id: r.id});
   });
-  
-  // Maintain section order from local sections definition, add any new DB sections
+
+  // Maintain section order; include known sections even if empty (e.g. new season)
   const knownOrder = sections.map(s=>s.id);
   const dbSectionIds = Object.keys(sectionMap);
   const allIds = [...new Set([...knownOrder, ...dbSectionIds])];
-  
+
+  // Also include currentSeasonId even if empty
+  if(!allIds.includes(currentSeasonId)) allIds.unshift(currentSeasonId);
+
   liveSections = allIds.map(id=>{
     const local = sections.find(s=>s.id===id);
+    // Derive label: prefer local definition, then capitalise the id nicely
+    const label = local ? local.label : id.replace(/([a-z])(\d)/,'$1 $2').replace(/^./,c=>c.toUpperCase());
     return {
       id,
-      label: local ? local.label : id,
+      label,
       cocktails: sectionMap[id] || (local ? local.cocktails : [])
     };
-  }).filter(s=>s.cocktails.length>0);
+  }).filter(s=>!systemSections.has(s.id));
 }
 
 async function seedDB(){
@@ -1422,6 +1434,13 @@ async function doSeasonSwitch(){
       const nonPermRows = batchRows.filter(r=>!r.data?.permanent);
       await Promise.all(nonPermRows.map(r=>sbDelete('recepten',r.id)));
     }
+    // Save currentSeasonId to DB so it survives reload
+    const existing = await sbGet('recepten','sectie=eq._meta&naam=eq.currentSeasonId');
+    if(existing && existing.length>0){
+      await sbUpdate('recepten', existing[0].id, {data:{value:newId}});
+    } else {
+      await sbInsert('recepten',{sectie:'_meta',naam:'currentSeasonId',data:{value:newId},volgorde:0});
+    }
   } catch(e){ console.warn('DB not available for season switch'); }
   
   saveLocal();
@@ -1502,6 +1521,23 @@ async function saveImport(){
   setSync('Importeren...');
   const inserts = parsedImport.map((r,i)=>sbInsert('recepten', {sectie:importSectie, naam:r.name, data:r, volgorde:Date.now()+i}));
   await Promise.all(inserts);
+
+  // Auto-generate batch entries if importing into current season
+  if(isNewestSeason(importSectie)){
+    const batchInserts = [];
+    parsedImport.forEach((r,i)=>{
+      const batchData = generateBatchFromCocktail(r);
+      if(batchData){
+        liveBatch.push(batchData);
+        batchInserts.push(sbInsert('recepten',{sectie:'batch',naam:batchData.name,data:batchData,volgorde:Date.now()+10000+i}));
+      }
+    });
+    if(batchInserts.length>0){
+      await Promise.all(batchInserts);
+      showBatchGeneratedNotice(parsedImport.map(r=>r.name).join(', '));
+    }
+  }
+
   setSync('Geïmporteerd ✓');
   setTimeout(()=>setSync(''),2000);
   closeModal('import-modal');
