@@ -852,12 +852,18 @@ function selectSyrup(i){ activeSyrupIdx=i; renderSyrups(); scrollToDetail(); }
 function renderSection(id){
   const sec=liveSections.find(s=>s.id===id);
   if(!sec)return;
-  const cards=sec.cocktails.map((c,i)=>`<div class="recipe-card recipe-card-edit${i===activeRecipeIdx?' active':''}" onclick="selectRecipe('${id}',${i})">${editCardBtn('section_'+id,i)}<div class="recipe-card-name">${c.name}</div><div class="recipe-card-meta">${c.ingredients.length} ingrediënten</div></div>`).join('');
-  const c=sec.cocktails[activeRecipeIdx];
-  const detail=`<div class="recipe-detail"><div class="recipe-detail-title">${c.name}</div>`+
-    c.ingredients.map(i=>`<div class="recipe-ing-row"><span class="recipe-ing-name">${i.name}</span><span class="recipe-ing-amt">${i.amt}</span></div>`).join('')+
-    (c.note?`<div class="recipe-note">${c.note}</div>`:'')+`</div>`;
-  document.getElementById('main').innerHTML=`<div class="page-title">${sec.label}</div><div class="page-sub">${id==='extra'?'Losse recepten':'Archief &mdash; individuele cocktails'}</div><div class="recipe-grid">${cards}</div>`+detail;
+  const cocktails=sec.cocktails||[];
+  const cards=cocktails.map((c,i)=>`<div class="recipe-card recipe-card-edit${i===activeRecipeIdx?' active':''}" onclick="selectRecipe('${id}',${i})">${editCardBtn('section_'+id,i)}<div class="recipe-card-name">${c.name}</div><div class="recipe-card-meta">${(c.ingredients||[]).length} ingrediënten</div></div>`).join('');
+  let detail='';
+  if(cocktails.length>0){
+    const c=cocktails[Math.min(activeRecipeIdx,cocktails.length-1)];
+    detail=`<div class="recipe-detail"><div class="recipe-detail-title">${c.name}</div>`+
+      (c.ingredients||[]).map(i=>`<div class="recipe-ing-row"><span class="recipe-ing-name">${i.name}</span><span class="recipe-ing-amt">${i.amt}</span></div>`).join('')+
+      (c.note?`<div class="recipe-note">${c.note}</div>`:'')+`</div>`;
+  } else {
+    detail=`<div class="recipe-detail"><div class="recipe-detail-title" style="opacity:.5;font-size:18px">Nog geen cocktails</div><div class="recipe-ing-row" style="opacity:.4">Voeg recepten toe via de + knop</div></div>`;
+  }
+  document.getElementById('main').innerHTML=`<div class="page-title">${sec.label}</div><div class="page-sub">${id==='extra'?'Losse recepten':'Seizoenskaart &mdash; individuele cocktails'}</div><div class="recipe-grid">${cards}</div>`+detail;
 }
 function selectRecipe(secId,i){ activeRecipeIdx=i; renderSection(secId); scrollToDetail(); }
 
@@ -974,7 +980,8 @@ function getSectiesWithNext(){
 
 function buildSectiePills(containerId, activeId, onSelect){
   const el = document.getElementById(containerId);
-  el.innerHTML = SECTIES.map(s=>`<div class="tab-pill${s.id===activeId?' active':''}" onclick="(${onSelect})('${s.id}',this)">${s.label}</div>`).join('');
+  const secties = getSectiesWithNext().filter(s=>s.id!=='batch');
+  el.innerHTML = secties.map(s=>`<div class="tab-pill${s.id===activeId?' active':''}" onclick="(${onSelect})('${s.id}',this)">${s.label}</div>`).join('');
 }
 
 function showAddModal(){
