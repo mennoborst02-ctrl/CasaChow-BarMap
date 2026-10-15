@@ -1196,11 +1196,64 @@ function addStepRow(val=''){
   document.getElementById('steps-list').appendChild(div);
 }
 
-// Ingredients to exclude from batch (fresh/carbonated)
+// ─── KOSTPRIJS PER INGREDIENT ────────────────────────────────────────────────
+// Prijs per ml in euro's. Naam in lowercase, gedeeltelijke match werkt ook.
+const KOSTPRIJS_PER_ML = [
+  // Spirits
+  {match:'sesam whisky',       perMl: 50/700},
+  {match:'reposado tequila',   perMl: 25/700},
+  {match:'mezcal',             perMl: 35/700},
+  {match:'vodka',              perMl: 13/700},
+  {match:'soju',               perMl: 8/700},
+  {match:'spiced rum',         perMl: 15/700},
+  {match:'campari',            perMl: 21.80/1000},
+  {match:'amaretto',           perMl: 116.57/10000},
+  // Likeuren
+  {match:'lychee likeur',      perMl: 15/700},
+  {match:'mango likeur',       perMl: 15/700},
+  {match:'baileys',            perMl: 15/1000},
+  // Siropen & cordials
+  {match:'tamarinde cordial',  perMl: 0.011},
+  {match:'thai siroop',        perMl: 0.011},
+  {match:'vanille siroop',     perMl: 7.03/700},
+  {match:'ube concentraat',    perMl: 14.44/700},
+  // Overig batchbaar
+  {match:'kokosroom',          perMl: 3.87/1000},
+  {match:'yakult',             perMl: 0.80/65},
+];
+
+function getKostprijsPerMl(name){
+  const lower = name.toLowerCase();
+  const match = KOSTPRIJS_PER_ML.find(k => lower.includes(k.match));
+  return match ? match.perMl : null;
+}
+
+function parseAmtMl(amt){
+  if(!amt) return null;
+  const m = amt.toString().match(/([\d,.]+)\s*ml/i);
+  if(!m) return null;
+  return parseFloat(m[1].replace(',','.'));
+}
+
+function calcCocktailKostprijs(cocktail){
+  let total = 0;
+  let allKnown = true;
+  for(const ing of (cocktail.ingredients||[])){
+    const ml = parseAmtMl(ing.amt);
+    if(!ml){ allKnown = false; continue; }
+    const perMl = getKostprijsPerMl(ing.name);
+    if(perMl == null){ allKnown = false; continue; }
+    total += ml * perMl;
+  }
+  return {total: Math.round(total*100)/100, allKnown};
+}
+
+// ─── INGREDIENTS TO EXCLUDE FROM BATCH (FRESH/CARBONATED) ───────────────────
 const FRESH_KEYWORDS = [
   'limoen','citroen','sinaasappel','grapefruit','sap','juice',
   'bruiswater','soda','gingerbeer','tonic','spuitwater','foamee',
-  'garnering','schijfje','partjes','blaadjes','takje','stengel'
+  'garnering','schijfje','partjes','blaadjes','takje','stengel',
+  'druppels','dashes','dash','tincture','bitters','saline','yakult'
 ];
 
 function isFresh(name){
