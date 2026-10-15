@@ -671,20 +671,46 @@ function loadFromDB(rows){
     sectionMap[r.sectie].push({...r.data, _id: r.id});
   });
 
-  // Build sections: currentSeasonId always first, then others
+  // Collect all section IDs from both hardcoded list and DB
   const knownOrder = sections.map(s=>s.id);
   const dbSectionIds = Object.keys(sectionMap);
   const allIds = [...new Set([...knownOrder, ...dbSectionIds])];
-
-  // Ensure currentSeasonId is in the list
   if(!allIds.includes(currentSeasonId)) allIds.push(currentSeasonId);
 
-  // Remove currentSeasonId from wherever it is, put it at the front
-  const reordered = [currentSeasonId, ...allIds.filter(id=>id!==currentSeasonId)];
+  // Helper: parse season id like "winter2026" or "zomer2025" into sort key
+  // Higher = newer. winter=1, zomer=0 within same year so winter2026 > zomer2026
+  function seasonSortKey(id){
+    const m = id.match(/^(winter|zomer|lente|herfst)(\d{4})$/);
+    if(!m) return -1; // non-season sections go to bottom of season block
+    const year = parseInt(m[2]);
+    const season = m[1]==='winter'?3 : m[1]==='herfst'?2 : m[1]==='zomer'?1 : 0;
+    return year*10 + season;
+  }
 
-  liveSections = reordered.map(id=>{
+  // Separate season IDs from non-season IDs
+  const nonSeasonOrder = ['extra','slush','nul','classics']; // known non-season section order
+  const seasonIds = allIds.filter(id=>seasonSortKey(id)>0);
+  const nonSeasonIds = allIds.filter(id=>seasonSortKey(id)<0);
+
+  // Sort seasons newest first
+  seasonIds.sort((a,b)=>seasonSortKey(b)-seasonSortKey(a));
+
+  // currentSeasonId always first among seasons (in case sort doesn't catch it)
+  const seasonsSorted = [currentSeasonId, ...seasonIds.filter(id=>id!==currentSeasonId)];
+
+  // Non-seasons keep their original relative order
+  const reordered = [...nonSeasonIds.filter(id=>!seasonIds.includes(id)), ...seasonsSorted];
+  // Actually: sidebar order is non-seasons first (classics etc), then seasons newest->oldest
+  // But looking at screenshot: Classics & Losse cocktails, Slush, 0.0 come BEFORE old seasons
+  // So: [non-season sections in knownOrder] then [seasons newest first]
+  const nonSeasonSorted = nonSeasonIds.sort((a,b)=>{
+    const ai = knownOrder.indexOf(a); const bi = knownOrder.indexOf(b);
+    return (ai<0?999:ai)-(bi<0?999:bi);
+  });
+  const finalOrder = [...nonSeasonSorted, ...seasonsSorted];
+
+  liveSections = finalOrder.map(id=>{
     const local = sections.find(s=>s.id===id);
-    // Derive label: prefer local definition, then capitalise the id nicely
     const label = local ? local.label : id.replace(/([a-z])(\d)/,'$1 $2').replace(/^./,c=>c.toUpperCase());
     return {
       id,
