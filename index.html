@@ -601,7 +601,7 @@ async function init(){
   if(stored){
     try{
       const d = JSON.parse(stored);
-      liveBatch = (d.batch && d.batch.length > 0) ? d.batch : batchCocktails;
+      liveBatch = (d.batch && d.batch.length > 0) ? d.batch.filter(b=>!b._hidden) : batchCocktails;
       liveSections = d.sections || sections;
       liveSyropen = d.syropen || syropen;
       if(d.currentSeasonId) currentSeasonId = d.currentSeasonId;
@@ -660,7 +660,12 @@ function loadFromDB(rows){
     if(r.naam==='currentSeasonId' && r.data?.value) currentSeasonId = r.data.value;
   });
 
-  liveBatch = rows.filter(r=>r.sectie==='batch').map(r=>r.data);
+  const dbBatch = rows.filter(r=>r.sectie==='batch' && !r.data._hidden).map(r=>r.data);
+  const permanentDefaults = batchCocktails.filter(c=>c.permanent);
+  // Merge: keep permanent defaults that aren't already in DB (by id or name)
+  const dbIds = new Set(dbBatch.map(b=>b.id||b.name));
+  const missingPermanents = permanentDefaults.filter(p=>!dbIds.has(p.id) && !dbIds.has(p.name));
+  liveBatch = [...missingPermanents, ...dbBatch];
   liveSyropen = rows.filter(r=>r.sectie==='siropen').map(r=>{return {...r.data, _id: r.id}});
 
   // Build sections from DB (exclude system rows)
@@ -1253,7 +1258,7 @@ const FRESH_KEYWORDS = [
   'limoen','citroen','sinaasappel','grapefruit','sap','juice',
   'bruiswater','soda','gingerbeer','tonic','spuitwater','foamee',
   'garnering','schijfje','partjes','blaadjes','takje','stengel',
-  'druppels','dashes','dash','tincture','bitters','saline','yakult'
+  'druppels','saline','yakult'
 ];
 
 function isFresh(name){
