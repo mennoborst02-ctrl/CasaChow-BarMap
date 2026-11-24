@@ -662,10 +662,10 @@ function loadFromDB(rows){
 
   const dbBatch = rows.filter(r=>r.sectie==='batch' && !r.data._hidden).map(r=>r.data);
   const permanentDefaults = batchCocktails.filter(c=>c.permanent);
-  // Merge: keep permanent defaults that aren't already in DB (by id or name)
+  // Merge: keep permanent defaults that aren't already in DB (by id or name), add at END
   const dbIds = new Set(dbBatch.map(b=>b.id||b.name));
   const missingPermanents = permanentDefaults.filter(p=>!dbIds.has(p.id) && !dbIds.has(p.name));
-  liveBatch = [...missingPermanents, ...dbBatch];
+  liveBatch = [...dbBatch, ...missingPermanents];
   liveSyropen = rows.filter(r=>r.sectie==='siropen').map(r=>{return {...r.data, _id: r.id}});
 
   // Build sections from DB (exclude system rows)
@@ -701,7 +701,9 @@ function loadFromDB(rows){
   seasonIds.sort((a,b)=>seasonSortKey(b)-seasonSortKey(a));
 
   // currentSeasonId always first among seasons (in case sort doesn't catch it)
-  const seasonsSorted = [currentSeasonId, ...seasonIds.filter(id=>id!==currentSeasonId)];
+  // Only show current season + 1 previous season in sidebar (hide older ones)
+  const seasonsSortedAll = [currentSeasonId, ...seasonIds.filter(id=>id!==currentSeasonId)];
+  const seasonsSorted = seasonsSortedAll.slice(0, 2); // current + 1 previous max
 
   // Non-seasons keep their original relative order
   const reordered = [...nonSeasonIds.filter(id=>!seasonIds.includes(id)), ...seasonsSorted];
