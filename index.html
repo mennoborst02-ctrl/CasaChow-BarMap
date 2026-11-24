@@ -317,6 +317,18 @@ body.edit-active .main{padding-bottom:80px}
       <input type="text" id="f-note" placeholder="Glaswerk, garnering, ...">
     </div>
 
+    <!-- In batch toggle (section only) -->
+    <div id="in-batch-field" style="display:none;margin-top:.75rem">
+      <div style="display:flex;align-items:center;gap:.75rem;padding:.6rem .8rem;background:var(--card-bg);border-radius:8px;border:1px solid var(--border)">
+        <label style="flex:1;font-size:.85rem;color:var(--fg);cursor:pointer" for="f-in-batch">In batch opnemen</label>
+        <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer">
+          <input type="checkbox" id="f-in-batch" style="opacity:0;width:0;height:0;position:absolute">
+          <span id="in-batch-slider" style="position:absolute;inset:0;background:var(--border);border-radius:11px;transition:.2s;"></span>
+          <span id="in-batch-knob" style="position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
+        </label>
+      </div>
+    </div>
+
     <div style="display:flex;margin-top:1rem">
       <button class="btn-secondary" id="delete-btn" style="display:none" onclick="deleteRecept()">Verwijderen</button>
       <button class="btn-primary" onclick="saveRecept()">Opslaan</button>
@@ -665,7 +677,34 @@ function loadFromDB(rows){
   // Merge: keep permanent defaults that aren't already in DB (by id or name), add at END
   const dbIds = new Set(dbBatch.map(b=>b.id||b.name));
   const missingPermanents = permanentDefaults.filter(p=>!dbIds.has(p.id) && !dbIds.has(p.name));
-  liveBatch = [...dbBatch, ...missingPermanents];
+
+  // Also include section cocktails marked _inBatch:true (convert to batch format)
+  const systemSectionsForBatch = new Set(['batch','siropen','juice','_meta','meplijst','mep_custom']);
+  const inBatchFromSections = rows
+    .filter(r=>!systemSectionsForBatch.has(r.sectie) && r.data._inBatch && !r.data._hidden)
+    .map(r=>{
+      const d = r.data;
+      // Convert section ingredient format {name, amt} to batch format {name, ml}
+      const ings = (d.ingredients||[]).map(i=>{
+        if(i.ml !== undefined) return i; // already batch format
+        const ml = parseFloat(i.amt) || 0;
+        return {name: i.name, ml};
+      });
+      return {
+        name: d.name,
+        ingredients: ings,
+        specials: d.specials || [],
+        base: d.base || 10,
+        tags: d.tags || [],
+        note: d.note || '',
+        _id: r.id,
+        _fromSection: r.sectie,
+        _inBatch: true
+      };
+    })
+    .filter(c=>!dbIds.has(c.name)); // don't duplicate if already in batch
+
+  liveBatch = [...dbBatch, ...inBatchFromSections, ...missingPermanents];
   liveSyropen = rows.filter(r=>r.sectie==='siropen').map(r=>{return {...r.data, _id: r.id}});
 
   // Build sections from DB (exclude system rows)
@@ -1043,6 +1082,7 @@ function showAddModal(){
   document.getElementById('f-note').value = '';
   document.getElementById('f-base').value = '10';
   document.getElementById('f-vriezer').value = 'nee';
+  setInBatchToggle(false);
   document.getElementById('delete-btn').style.display = 'none';
   document.getElementById('modal-title').textContent = 'Recept toevoegen';
   document.getElementById('ing-list').innerHTML = '';
@@ -1075,6 +1115,7 @@ function openEdit(type, idx){
   document.getElementById('f-note').value = data.note||'';
   document.getElementById('f-base').value = data.base||10;
   document.getElementById('f-vriezer').value = (data.tags||[]).includes('vriezer')?'ja':'nee';
+  setInBatchToggle(!!data._inBatch);
   document.getElementById('delete-btn').style.display = 'inline-block';
   document.getElementById('modal-title').textContent = 'Recept bewerken';
   
@@ -1107,14 +1148,29 @@ function openEdit(type, idx){
 function updateModalFields(){
   const isBatch = currentEditType==='batch';
   const isSiroop = currentEditType==='siropen';
+  const isSection = !isBatch && !isSiroop;
   document.getElementById('batch-fields').style.display = isBatch?'block':'none';
   document.getElementById('specials-section').style.display = isBatch?'block':'none';
   document.getElementById('steps-section').style.display = isSiroop?'block':'none';
-  document.getElementById('note-field').style.display = (!isBatch&&!isSiroop)?'block':'none';
+  document.getElementById('note-field').style.display = isSection?'block':'none';
+  document.getElementById('in-batch-field').style.display = isSection?'block':'none';
   document.getElementById('ing-label').style.display = isSiroop?'none':'block';
   document.getElementById('ing-list').style.display = isSiroop?'none':'block';
   document.querySelector('.btn-add-ing').style.display = isSiroop?'none':'block';
 }
+
+function setInBatchToggle(val){
+  const cb = document.getElementById('f-in-batch');
+  cb.checked = !!val;
+  document.getElementById('in-batch-slider').style.background = val ? '#f5a623' : 'var(--border)';
+  document.getElementById('in-batch-knob').style.left = val ? '21px' : '3px';
+}
+
+document.addEventListener('change', function(e){
+  if(e.target.id === 'f-in-batch'){
+    setInBatchToggle(e.target.checked);
+  }
+});
 
 function addIngRow(name='', amt='', unit='ml'){
   const div = document.createElement('div');
@@ -1354,7 +1410,8 @@ async function saveRecept(){
       const amt = num && unit ? num+' '+unit : (num||inputs[1]?.value.trim()||'');
       return {name:inputs[0].value.trim(), amt:amt};
     }).filter(i=>i.name);
-    data = {name:naam, ingredients:ings, note:document.getElementById('f-note').value.trim()};
+    const inBatch = document.getElementById('f-in-batch').checked;
+    data = {name:naam, ingredients:ings, note:document.getElementById('f-note').value.trim(), ...(inBatch ? {_inBatch:true} : {})};
     sectie = view;
   }
   
