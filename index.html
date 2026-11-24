@@ -290,7 +290,10 @@ body.edit-active .main{padding-bottom:80px}
     </div>
 
     <!-- Ingredients -->
-    <div style="font-family:DM Mono,monospace;font-size:10px;color:var(--white-hint);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem" id="ing-label">Ingrediënten</div>
+    <div id="ing-label" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+      <span style="font-family:DM Mono,monospace;font-size:10px;color:var(--white-hint);text-transform:uppercase;letter-spacing:.08em">Ingrediënten</span>
+      <span id="ing-batch-hint" style="display:none;font-family:DM Mono,monospace;font-size:10px;color:var(--gold);letter-spacing:.04em" title="Vink aan welke ingrediënten in de batch calculator meegenomen worden">B = in batch</span>
+    </div>
     <div id="ing-list"></div>
     <button class="btn-add-ing" onclick="addIngRow()">+ Ingrediënt toevoegen</button>
 
@@ -317,17 +320,6 @@ body.edit-active .main{padding-bottom:80px}
       <input type="text" id="f-note" placeholder="Glaswerk, garnering, ...">
     </div>
 
-    <!-- In batch toggle (section only) -->
-    <div id="in-batch-field" style="display:none;margin-top:.75rem">
-      <div style="display:flex;align-items:center;gap:.75rem;padding:.6rem .8rem;background:var(--card-bg);border-radius:8px;border:1px solid var(--border)">
-        <label style="flex:1;font-size:.85rem;color:var(--fg);cursor:pointer" for="f-in-batch">In batch opnemen</label>
-        <label style="position:relative;display:inline-block;width:40px;height:22px;cursor:pointer">
-          <input type="checkbox" id="f-in-batch" style="opacity:0;width:0;height:0;position:absolute">
-          <span id="in-batch-slider" style="position:absolute;inset:0;background:var(--border);border-radius:11px;transition:.2s;"></span>
-          <span id="in-batch-knob" style="position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
-        </label>
-      </div>
-    </div>
 
     <div style="display:flex;margin-top:1rem">
       <button class="btn-secondary" id="delete-btn" style="display:none" onclick="deleteRecept()">Verwijderen</button>
@@ -677,34 +669,7 @@ function loadFromDB(rows){
   // Merge: keep permanent defaults that aren't already in DB (by id or name), add at END
   const dbIds = new Set(dbBatch.map(b=>b.id||b.name));
   const missingPermanents = permanentDefaults.filter(p=>!dbIds.has(p.id) && !dbIds.has(p.name));
-
-  // Also include section cocktails marked _inBatch:true (convert to batch format)
-  const systemSectionsForBatch = new Set(['batch','siropen','juice','_meta','meplijst','mep_custom']);
-  const inBatchFromSections = rows
-    .filter(r=>!systemSectionsForBatch.has(r.sectie) && r.data._inBatch && !r.data._hidden)
-    .map(r=>{
-      const d = r.data;
-      // Convert section ingredient format {name, amt} to batch format {name, ml}
-      const ings = (d.ingredients||[]).map(i=>{
-        if(i.ml !== undefined) return i; // already batch format
-        const ml = parseFloat(i.amt) || 0;
-        return {name: i.name, ml};
-      });
-      return {
-        name: d.name,
-        ingredients: ings,
-        specials: d.specials || [],
-        base: d.base || 10,
-        tags: d.tags || [],
-        note: d.note || '',
-        _id: r.id,
-        _fromSection: r.sectie,
-        _inBatch: true
-      };
-    })
-    .filter(c=>!dbIds.has(c.name)); // don't duplicate if already in batch
-
-  liveBatch = [...dbBatch, ...inBatchFromSections, ...missingPermanents];
+  liveBatch = [...dbBatch, ...missingPermanents];
   liveSyropen = rows.filter(r=>r.sectie==='siropen').map(r=>{return {...r.data, _id: r.id}});
 
   // Build sections from DB (exclude system rows)
@@ -948,7 +913,7 @@ function renderSection(id){
   if(cocktails.length>0){
     const c=cocktails[Math.min(activeRecipeIdx,cocktails.length-1)];
     detail=`<div class="recipe-detail"><div class="recipe-detail-title">${c.name}</div>`+
-      (c.ingredients||[]).map(i=>`<div class="recipe-ing-row"><span class="recipe-ing-name">${i.name}</span><span class="recipe-ing-amt">${i.amt}</span></div>`).join('')+
+      (c.ingredients||[]).map(i=>`<div class="recipe-ing-row"><span class="recipe-ing-name">${i.name}${i._batch===false?'<span style="font-size:10px;color:var(--white-hint);margin-left:4px">(per glas)</span>':''}</span><span class="recipe-ing-amt">${i.amt}</span></div>`).join('')+
       (c.note?`<div class="recipe-note">${c.note}</div>`:'')+`</div>`;
   } else {
     detail=`<div class="recipe-detail"><div class="recipe-detail-title" style="opacity:.5;font-size:18px">Nog geen cocktails</div><div class="recipe-ing-row" style="opacity:.4">Voeg recepten toe via de + knop</div></div>`;
@@ -1082,7 +1047,6 @@ function showAddModal(){
   document.getElementById('f-note').value = '';
   document.getElementById('f-base').value = '10';
   document.getElementById('f-vriezer').value = 'nee';
-  setInBatchToggle(false);
   document.getElementById('delete-btn').style.display = 'none';
   document.getElementById('modal-title').textContent = 'Recept toevoegen';
   document.getElementById('ing-list').innerHTML = '';
@@ -1115,7 +1079,6 @@ function openEdit(type, idx){
   document.getElementById('f-note').value = data.note||'';
   document.getElementById('f-base').value = data.base||10;
   document.getElementById('f-vriezer').value = (data.tags||[]).includes('vriezer')?'ja':'nee';
-  setInBatchToggle(!!data._inBatch);
   document.getElementById('delete-btn').style.display = 'inline-block';
   document.getElementById('modal-title').textContent = 'Recept bewerken';
   
@@ -1137,7 +1100,7 @@ function openEdit(type, idx){
     document.getElementById('steps-list').innerHTML='';
     (data.steps||[]).forEach(s=>addStepRow(s));
   } else {
-    (data.ingredients||[]).forEach(i=>addIngRow(i.name, i.amt));
+    (data.ingredients||[]).forEach(i=>addIngRow(i.name, i.amt, 'ml', i._batch !== undefined ? i._batch : null));
   }
   
   buildSectiePills('sectie-pills', currentEditType==='siropen'?'siropen':currentEditType==='batch'?'batch':view, ()=>{});
@@ -1153,29 +1116,18 @@ function updateModalFields(){
   document.getElementById('specials-section').style.display = isBatch?'block':'none';
   document.getElementById('steps-section').style.display = isSiroop?'block':'none';
   document.getElementById('note-field').style.display = isSection?'block':'none';
-  document.getElementById('in-batch-field').style.display = isSection?'block':'none';
-  document.getElementById('ing-label').style.display = isSiroop?'none':'block';
+  document.getElementById('ing-label').style.display = isSiroop?'none':'flex';
+  const batchHint = document.getElementById('ing-batch-hint');
+  if(batchHint) batchHint.style.display = isSection?'inline':'none';
   document.getElementById('ing-list').style.display = isSiroop?'none':'block';
   document.querySelector('.btn-add-ing').style.display = isSiroop?'none':'block';
 }
 
-function setInBatchToggle(val){
-  const cb = document.getElementById('f-in-batch');
-  cb.checked = !!val;
-  document.getElementById('in-batch-slider').style.background = val ? '#f5a623' : 'var(--border)';
-  document.getElementById('in-batch-knob').style.left = val ? '21px' : '3px';
-}
 
-document.addEventListener('change', function(e){
-  if(e.target.id === 'f-in-batch'){
-    setInBatchToggle(e.target.checked);
-  }
-});
-
-function addIngRow(name='', amt='', unit='ml'){
+function addIngRow(name='', amt='', unit='ml', inBatch=null){
   const div = document.createElement('div');
   div.className = 'ing-row-edit';
-  
+
   // Detect unit from amt string
   let detectedUnit = unit || 'ml';
   if(typeof amt === 'string'){
@@ -1185,16 +1137,16 @@ function addIngRow(name='', amt='', unit='ml'){
     else if(amt.toLowerCase().includes(' el') || amt.toLowerCase().endsWith('el')) detectedUnit='el';
     else if(amt.toLowerCase().includes(' tl') || amt.toLowerCase().endsWith('tl')) detectedUnit='tl';
   }
-  
+
   // Parse numeric value from amt string
   const numVal = amt ? amt.toString().replace(/[^0-9.,]/g,'') : '';
-  
+
   const inputStyle = 'background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--white);font-family:DM Sans,sans-serif;font-size:14px;padding:7px 10px;outline:none;width:100%';
   const numStyle = 'background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--white);font-family:DM Mono,monospace;font-size:14px;padding:7px 8px;outline:none;text-align:right;-moz-appearance:textfield;width:100%';
   const selStyle = 'background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--white);font-family:DM Sans,sans-serif;font-size:13px;padding:7px 6px;outline:none;cursor:pointer;width:100%';
   const btnStyle = 'background:none;border:none;color:var(--white-hint);cursor:pointer;font-size:18px;line-height:1;padding:4px';
-  
-  const unitSelect = 
+
+  const unitSelect =
     `<select class="ing-unit-select" style="${selStyle}">` +
     `<option value="ml" ${detectedUnit==='ml'?'selected':''}>ml</option>` +
     `<option value="dashes" ${detectedUnit==='dashes'?'selected':''}>dashes</option>` +
@@ -1204,13 +1156,30 @@ function addIngRow(name='', amt='', unit='ml'){
     `<option value="tl" ${detectedUnit==='tl'?'selected':''}>tl</option>` +
     `</select>`;
 
-  // Always: naam | getal | eenheid | verwijder
-  div.style.gridTemplateColumns = '1fr 70px 85px 32px';
-  div.innerHTML =
-    `<input type="text" placeholder="Naam" value="${name}" style="${inputStyle}">` +
-    `<input type="number" placeholder="0" value="${numVal}" min="0" step="any" class="ing-amount-input" style="${numStyle}">` +
-    unitSelect +
-    `<button class="btn-remove" onclick="this.parentElement.remove()" style="${btnStyle}">&times;</button>`;
+  // For section cocktails: show "B" (batch) checkbox per ingredient
+  // inBatch=null means auto-detect: default true unless name matches fresh keywords
+  const isSection = currentEditType === 'section';
+  if(isSection){
+    // Default: checked=true unless explicitly false or name looks fresh
+    const checked = inBatch === false ? false : (inBatch === true ? true : !isFresh(name));
+    const batchCheckStyle = 'display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0 2px';
+    // naam | getal | eenheid | B-checkbox | verwijder
+    div.style.gridTemplateColumns = '1fr 70px 85px 28px 32px';
+    div.innerHTML =
+      `<input type="text" placeholder="Naam" value="${name}" style="${inputStyle}">` +
+      `<input type="number" placeholder="0" value="${numVal}" min="0" step="any" class="ing-amount-input" style="${numStyle}">` +
+      unitSelect +
+      `<label title="In batch opnemen" style="${batchCheckStyle}"><input type="checkbox" class="ing-batch-cb" ${checked?'checked':''} style="width:14px;height:14px;cursor:pointer;accent-color:#f5a623"></label>` +
+      `<button class="btn-remove" onclick="this.parentElement.remove()" style="${btnStyle}">&times;</button>`;
+  } else {
+    // Batch / default: naam | getal | eenheid | verwijder (unchanged)
+    div.style.gridTemplateColumns = '1fr 70px 85px 32px';
+    div.innerHTML =
+      `<input type="text" placeholder="Naam" value="${name}" style="${inputStyle}">` +
+      `<input type="number" placeholder="0" value="${numVal}" min="0" step="any" class="ing-amount-input" style="${numStyle}">` +
+      unitSelect +
+      `<button class="btn-remove" onclick="this.parentElement.remove()" style="${btnStyle}">&times;</button>`;
+  }
 
   document.getElementById('ing-list').appendChild(div);
 }
@@ -1331,7 +1300,7 @@ function isNewestSeason(sectionId){
 function generateBatchFromCocktail(cocktailData){
   const base = 10;
   const batchIngredients = (cocktailData.ingredients || [])
-    .filter(i => i.name && i.amt && !isFresh(i.name) && i.amt !== '')
+    .filter(i => i.name && i.amt && i.amt !== '' && (i._batch !== false) && !isFresh(i.name))
     .map(i => {
       // Parse amount: "50 ml" -> 50, then multiply by base
       const match = i.amt.toString().match(/([\d,.]+)/);
@@ -1403,15 +1372,20 @@ async function saveRecept(){
     sectie = 'siropen';
   } else {
     const ings = [...document.getElementById('ing-list').querySelectorAll('.ing-row-edit')].map(row=>{
-      const inputs=row.querySelectorAll('input');
+      const inputs=row.querySelectorAll('input[type="text"],input[type="number"]');
+      const nameInput=row.querySelector('input[placeholder="Naam"]');
+      const amtInput=row.querySelector('.ing-amount-input');
       const sel=row.querySelector('select');
-      const num=inputs[1]?.value.trim()||'';
+      const batchCb=row.querySelector('.ing-batch-cb');
+      const name=(nameInput||inputs[0])?.value.trim()||'';
+      const num=(amtInput||inputs[1])?.value.trim()||'';
       const unit=sel?sel.value:'';
-      const amt = num && unit ? num+' '+unit : (num||inputs[1]?.value.trim()||'');
-      return {name:inputs[0].value.trim(), amt:amt};
-    }).filter(i=>i.name);
-    const inBatch = document.getElementById('f-in-batch').checked;
-    data = {name:naam, ingredients:ings, note:document.getElementById('f-note').value.trim(), ...(inBatch ? {_inBatch:true} : {})};
+      const amt = num && unit ? num+' '+unit : (num||'');
+      const _batch = batchCb ? batchCb.checked : true;
+      if(!name) return null;
+      return {name, amt, _batch};
+    }).filter(Boolean);
+    data = {name:naam, ingredients:ings, note:document.getElementById('f-note').value.trim()};
     sectie = view;
   }
   
